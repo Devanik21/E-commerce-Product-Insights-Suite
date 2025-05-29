@@ -31,24 +31,37 @@ import arviz as az
 from datetime import datetime
 
 # Streamlit config
-st.set_page_config(page_title="🛒 E-commerce Insights Suite", layout="wide")
-st.title("🛒 E-commerce Product Insights Suite")
-st.write("Exploring insights from the preloaded Fashion Dataset. Analyze segments, churn, sales trends, and more!")
+st.set_page_config(page_title="🛒 E-commerce Sales Insights Suite", layout="wide")
+st.title("🛒 E-commerce Sales Insights Suite")
+st.write("Exploring insights from the preloaded Amazon Sales Report. Analyze segments, sales trends, and more!")
 
 # Load preloaded data
-# Ensure 'FashionDataset.csv' is in the same directory as app.py or provide a full path.
+# Ensure 'Amazon_Sale_Report_Sampled.csv' is in the same directory as app.py or provide a full path.
+DATASET_FILENAME = "Amazon_Sale_Report_Sampled.csv"
 try:
-    df = pd.read_csv("FashionDataset.csv", index_col=0) # Use index_col=0 for the unnamed index
-    st.subheader("🧾 Data Preview (FashionDataset.csv)")
+    df = pd.read_csv(DATASET_FILENAME, index_col=0) # Use index_col=0 for the first column as index
+    df.columns = df.columns.str.strip() # Strip whitespace from column names
+    if 'Unnamed: 22' in df.columns: # Drop common extraneous column from this dataset
+        df = df.drop(columns=['Unnamed: 22'])
+
+    st.subheader(f"🧾 Data Preview ({DATASET_FILENAME})")
     st.write(df.head())
 
     # Convert date columns
-    date_cols = [col for col in df.columns if 'date' in col.lower()]
-    for col in date_cols:
+    # Specifically handle 'Date' column from Amazon dataset, then others generically
+    date_column_to_format = 'Date' 
+    if date_column_to_format in df.columns:
         try:
-            df[col] = pd.to_datetime(df[col], errors='coerce')
+            df[date_column_to_format] = pd.to_datetime(df[date_column_to_format], format='%m-%d-%y', errors='coerce')
         except Exception as e:
-            st.warning(f"Could not convert column '{col}' to datetime: {e}")
+            st.warning(f"Could not convert column '{date_column_to_format}' with specific format %m-%d-%y: {e}. Trying generic conversion.")
+            df[date_column_to_format] = pd.to_datetime(df[date_column_to_format], errors='coerce', errors='ignore')
+
+    other_date_cols = [col for col in df.columns if 'date' in col.lower() and col != date_column_to_format]
+    for col in other_date_cols:
+        df[col] = pd.to_datetime(df[col], errors='coerce', errors='ignore')
+
+    date_cols = df.select_dtypes(include=['datetime64[ns]']).columns.tolist() # Update global list
 
     # --- Sidebar for API Key and AI Model Info ---
     st.sidebar.subheader("✨ AI Configuration")
