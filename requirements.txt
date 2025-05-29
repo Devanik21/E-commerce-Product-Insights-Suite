@@ -6,4 +6,5 @@ numpy
 seaborn
 matplotlib
 scikit-learn
+pymc 
 lifelines 
