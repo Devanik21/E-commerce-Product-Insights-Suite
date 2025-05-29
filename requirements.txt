@@ -1,3 +1,4 @@
+statsmodels
 google-generativeai
 streamlit
 pandas
