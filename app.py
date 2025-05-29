@@ -23,14 +23,6 @@ try:
     st.subheader("🧾 Data Preview (FashionDataset.csv)")
     st.write(df.head())
 
-    st.info("""
-    **Note:** The analysis modules below (RFM, Churn, Forecasting, etc.) are designed for datasets with specific column names 
-    (e.g., `CustomerID`, `OrderDate`, `TotalAmount`, `ProductID`, `IsReturned`, `Group`, `Conversion`). 
-    The preloaded `FashionDataset.csv` may have different column names or may not contain all required columns.
-    As a result, some or all analysis features may not function as expected or display any results.
-    You may need to adapt the dataset or the analysis code if you wish to use these features with the current data.
-    """)
-
     # Convert date columns
     date_cols = [col for col in df.columns if 'date' in col.lower()]
     for col in date_cols:
