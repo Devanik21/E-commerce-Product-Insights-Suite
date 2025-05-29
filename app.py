@@ -55,11 +55,11 @@ try:
             df[date_column_to_format] = pd.to_datetime(df[date_column_to_format], format='%m-%d-%y', errors='coerce')
         except Exception as e:
             st.warning(f"Could not convert column '{date_column_to_format}' with specific format %m-%d-%y: {e}. Trying generic conversion.")
-            df[date_column_to_format] = pd.to_datetime(df[date_column_to_format], errors='coerce', errors='ignore')
+            df[date_column_to_format] = pd.to_datetime(df[date_column_to_format], errors='coerce')
 
     other_date_cols = [col for col in df.columns if 'date' in col.lower() and col != date_column_to_format]
     for col in other_date_cols:
-        df[col] = pd.to_datetime(df[col], errors='coerce', errors='ignore')
+        df[col] = pd.to_datetime(df[col], errors='coerce')
 
     date_cols = df.select_dtypes(include=['datetime64[ns]']).columns.tolist() # Update global list
 
