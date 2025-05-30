@@ -800,65 +800,14 @@ try:
             # The RFM analysis code previously here was a duplicate from Tab 1
             # and caused an IndentationError. It has been removed.
             pass # Placeholder for actual MLS content
-
-        # Customer Churn Detection
-        if st.sidebar.checkbox("📉 Customer Churn Detection", key="churn_cb"):
-            st.subheader("📉 Customer Churn Detection")
-            if 'CustomerID' in df.columns and 'OrderDate' in df.columns and not df['OrderDate'].isnull().all():
-                recent_orders = df.groupby('CustomerID')['OrderDate'].max()
-                churn_threshold = st.slider("Days since last order to be considered churned", 30, 180, 90)
-                churned = recent_orders < (df['OrderDate'].max() - pd.Timedelta(days=churn_threshold))
-                churn_summary = churned.value_counts().rename(index={True: 'Churned', False: 'Active'})
-                st.bar_chart(churn_summary)
-            else:
-                st.warning("Churn detection requires 'CustomerID' and 'OrderDate' columns with valid data.")
-
-        # Sales Forecasting
-        if st.sidebar.checkbox("📈 Sales Forecasting", key="forecast_cb"):
-            st.subheader("📈 Sales Forecasting (Simple Trend)")
-            if 'OrderDate' in df.columns and 'TotalAmount' in df.columns and not df['OrderDate'].isnull().all():
-                df_sorted = df.dropna(subset=['OrderDate', 'TotalAmount']).sort_values('OrderDate')
-                if not df_sorted.empty:
-                    df_grouped = df_sorted.groupby('OrderDate')['TotalAmount'].sum().reset_index()
-                    df_grouped['Days'] = (df_grouped['OrderDate'] - df_grouped['OrderDate'].min()).dt.days
-                    model = LinearRegression()
-                    model.fit(df_grouped[['Days']], df_grouped['TotalAmount'])
-                    future_days = np.arange(df_grouped['Days'].max() + 1, df_grouped['Days'].max() + 31).reshape(-1, 1)
-                    future_sales = model.predict(future_days)
-                    future_dates = [df_grouped['OrderDate'].max() + pd.Timedelta(days=i) for i in range(1, 31)]
-                    forecast_df = pd.DataFrame({"OrderDate": future_dates, "ForecastedSales": future_sales})
-                    
-                    # Prepare data for st.line_chart
-                    plot_df = pd.concat([
-                        df_grouped[['OrderDate', 'TotalAmount']].rename(columns={"TotalAmount": "ActualSales"}).set_index('OrderDate'),
-                        forecast_df.rename(columns={"ForecastedSales": "ForecastedSales"}).set_index('OrderDate')
-                    ])
-                    st.line_chart(plot_df)
-                else:
-                    st.warning("Not enough valid data for sales forecasting after filtering.")
-            else:
-                st.warning("Sales forecasting requires 'OrderDate' and 'TotalAmount' columns with valid data.")
-
-        # Return Analysis
-        if st.sidebar.checkbox("↩️ Return Analysis", key="return_cb"):
-            st.subheader("↩️ Return Rate by Product")
-            if 'ProductID' in df.columns and 'IsReturned' in df.columns:
-                return_rate = df.groupby('ProductID')['IsReturned'].mean()
-                st.bar_chart(return_rate.sort_values(ascending=False).head(10))
-            else:
-                st.warning("Return analysis requires 'ProductID' and 'IsReturned' columns.")
-
-        # A/B Test Visual
-        if st.sidebar.checkbox("🧪 A/B Test Summary", key="ab_cb"):
-            st.subheader("🧪 A/B Test Summary for Pricing")
-            if 'Group' in df.columns and 'Conversion' in df.columns:
-                ab_summary = df.groupby('Group')['Conversion'].agg(['count', 'mean'])
-                st.write(ab_summary)
-                fig, ax = plt.subplots()
-                sns.barplot(data=df, x='Group', y='Conversion', ax=ax)
-                st.pyplot(fig)
-            else:
-                st.warning("A/B Test summary requires 'Group' and 'Conversion' columns.")
+        # The following analysis blocks (Customer Churn Detection, Sales Forecasting,
+        # Return Analysis, A/B Test Summary), originally from lines 790-845,
+        # have been removed. These blocks were misplaced within Tab 3's definition
+        # and were duplicates of functionalities correctly implemented in Tab 1 ("Traditional Analysis").
+        # Their `st.sidebar.checkbox` calls used keys (e.g., 'churn_cb', 'forecast_cb')
+        # that were already in use for Tab 1, leading to 'DuplicateWidgetID' errors.
+        # Removing these misplaced duplicates resolves the error for 'churn_cb' and
+        # preempts similar errors for other keys.
 
     with tab2:
         st.header("🤖 AI Powered Insights")
