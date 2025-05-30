@@ -1296,7 +1296,7 @@ try:
                                 obs_B = pm.Binomial(f'obs_{group_names_bab[1]}', n=total_b_bab, p=p_B, observed=conversions_b_bab)
                                 delta = pm.Deterministic('delta', p_B - p_A)
                                 uplift_abs = pm.Deterministic('uplift_abs', p_B - p_A) # Same as delta, but for clarity
-                                uplift_rel = pm.Deterministic('uplift_rel', (p_B - p_A) / p_A if p_A > 0 else 0) 
+                                uplift_rel = pm.Deterministic('uplift_rel', pm.math.switch(pm.math.gt(p_A, 1e-9), (p_B - p_A) / p_A, 0.0))
                                 
                                 # Use return_inferencedata=True for ArviZ compatibility
                                 trace = pm.sample(2000, tune=1000, cores=1, progressbar=True, return_inferencedata=True)
