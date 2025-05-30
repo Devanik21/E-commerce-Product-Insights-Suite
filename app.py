@@ -1312,613 +1312,619 @@ try:
             st.info("Unsupervised learning techniques to discover patterns and structures in your data without predefined labels.")
 
             # MLU 1: Anomaly Detection (Isolation Forest)
-            with st.expander("MLU 1: Anomaly Detection (Isolation Forest)", expanded=False):
-                st.markdown("Identify unusual data points (anomalies) in your sales data based on selected numeric features. This can help detect outliers like exceptionally high/low sales amounts or quantities.")
-                
-                numeric_cols_mlu1 = get_numeric_columns(df)
-                if len(numeric_cols_mlu1) < 1:
-                    st.warning("Anomaly detection requires at least one numeric column.")
-                else:
-                    features_mlu1 = st.multiselect("Select numeric features for anomaly detection:", 
-                                                   numeric_cols_mlu1, 
-                                                   default=[col for col in ['Amount', 'Qty'] if col in numeric_cols_mlu1], 
-                                                   key="mlu1_features")
-                    contamination_mlu1 = st.slider("Expected proportion of outliers (contamination):", 0.01, 0.2, 0.05, 0.01, key="mlu1_contamination",
-                                                   help="Adjust this based on how many anomalies you expect. Higher means more points flagged.")
+            st.subheader("MLU 1: Anomaly Detection (Isolation Forest)")
+            st.markdown("Identify unusual data points (anomalies) in your sales data based on selected numeric features. This can help detect outliers like exceptionally high/low sales amounts or quantities.")
+            
+            numeric_cols_mlu1 = get_numeric_columns(df)
+            if len(numeric_cols_mlu1) < 1:
+                st.warning("Anomaly detection requires at least one numeric column.")
+            else:
+                features_mlu1 = st.multiselect("Select numeric features for anomaly detection:", 
+                                               numeric_cols_mlu1, 
+                                               default=[col for col in ['Amount', 'Qty'] if col in numeric_cols_mlu1], 
+                                               key="mlu1_features")
+                contamination_mlu1 = st.slider("Expected proportion of outliers (contamination):", 0.01, 0.2, 0.05, 0.01, key="mlu1_contamination",
+                                               help="Adjust this based on how many anomalies you expect. Higher means more points flagged.")
 
-                    if st.button("🔍 Run Anomaly Detection", key="mlu1_run"):
-                        if not features_mlu1:
-                            st.warning("Please select at least one feature for anomaly detection.")
-                        else:
-                            try:
-                                mlu1_df = df[features_mlu1].copy().dropna()
-                                if mlu1_df.empty or len(mlu1_df) < 2:
-                                    st.warning("Not enough data after dropping NaNs for selected features.")
-                                else:
-                                    model_iso = IsolationForest(contamination=contamination_mlu1, random_state=42)
-                                    mlu1_df['anomaly_score'] = model_iso.fit_predict(mlu1_df) # -1 for anomalies, 1 for inliers
-                                    mlu1_df['is_anomaly'] = mlu1_df['anomaly_score'] == -1
-                                    
-                                    anomalies_detected = mlu1_df[mlu1_df['is_anomaly']]
-                                    
-                                    st.subheader("Anomaly Detection Results")
-                                    st.write(f"Number of anomalies detected: {len(anomalies_detected)} out of {len(mlu1_df)} data points.")
-                                    st.write("Detected Anomalies (first 100):")
-                                    st.dataframe(df.loc[anomalies_detected.index].head(100)) # Show original data for anomalies
+                if st.button("🔍 Run Anomaly Detection", key="mlu1_run"):
+                    if not features_mlu1:
+                        st.warning("Please select at least one feature for anomaly detection.")
+                    else:
+                        try:
+                            mlu1_df = df[features_mlu1].copy().dropna()
+                            if mlu1_df.empty or len(mlu1_df) < 2:
+                                st.warning("Not enough data after dropping NaNs for selected features.")
+                            else:
+                                model_iso = IsolationForest(contamination=contamination_mlu1, random_state=42)
+                                mlu1_df['anomaly_score'] = model_iso.fit_predict(mlu1_df) # -1 for anomalies, 1 for inliers
+                                mlu1_df['is_anomaly'] = mlu1_df['anomaly_score'] == -1
+                                
+                                anomalies_detected = mlu1_df[mlu1_df['is_anomaly']]
+                                
+                                st.markdown("##### Anomaly Detection Results") # Changed subheader level
+                                st.write(f"Number of anomalies detected: {len(anomalies_detected)} out of {len(mlu1_df)} data points.")
+                                st.write("Detected Anomalies (first 100):")
+                                st.dataframe(df.loc[anomalies_detected.index].head(100)) # Show original data for anomalies
 
-                                    if len(features_mlu1) == 2 and not anomalies_detected.empty:
-                                        st.markdown("#### Scatter Plot of Anomalies")
-                                        fig_mlu1, ax_mlu1 = plt.subplots()
-                                        sns.scatterplot(data=mlu1_df, x=features_mlu1[0], y=features_mlu1[1], hue='is_anomaly', palette={True: 'red', False: 'blue'}, ax=ax_mlu1, s=20)
-                                        ax_mlu1.set_title(f"Anomaly Detection: {features_mlu1[0]} vs {features_mlu1[1]}")
-                                        st.pyplot(fig_mlu1)
-                                    elif len(features_mlu1) > 2 and not anomalies_detected.empty:
-                                        st.info("Plotting first two selected features for anomaly visualization.")
-                                        fig_mlu1, ax_mlu1 = plt.subplots()
-                                        sns.scatterplot(data=mlu1_df, x=features_mlu1[0], y=features_mlu1[1], hue='is_anomaly', palette={True: 'red', False: 'blue'}, ax=ax_mlu1, s=20)
-                                        ax_mlu1.set_title(f"Anomaly Detection (showing {features_mlu1[0]} vs {features_mlu1[1]})")
-                                        st.pyplot(fig_mlu1)
-                                    elif anomalies_detected.empty:
-                                        st.info("No anomalies detected with the current settings.")
+                                if len(features_mlu1) == 2 and not anomalies_detected.empty:
+                                    st.markdown("###### Scatter Plot of Anomalies") # Changed subheader level
+                                    fig_mlu1, ax_mlu1 = plt.subplots()
+                                    sns.scatterplot(data=mlu1_df, x=features_mlu1[0], y=features_mlu1[1], hue='is_anomaly', palette={True: 'red', False: 'blue'}, ax=ax_mlu1, s=20)
+                                    ax_mlu1.set_title(f"Anomaly Detection: {features_mlu1[0]} vs {features_mlu1[1]}")
+                                    st.pyplot(fig_mlu1)
+                                elif len(features_mlu1) > 2 and not anomalies_detected.empty:
+                                    st.info("Plotting first two selected features for anomaly visualization.")
+                                    fig_mlu1, ax_mlu1 = plt.subplots()
+                                    sns.scatterplot(data=mlu1_df, x=features_mlu1[0], y=features_mlu1[1], hue='is_anomaly', palette={True: 'red', False: 'blue'}, ax=ax_mlu1, s=20)
+                                    ax_mlu1.set_title(f"Anomaly Detection (showing {features_mlu1[0]} vs {features_mlu1[1]})")
+                                    st.pyplot(fig_mlu1)
+                                elif anomalies_detected.empty:
+                                    st.info("No anomalies detected with the current settings.")
 
-                            except Exception as e:
-                                st.error(f"Error during anomaly detection: {e}")
+                        except Exception as e:
+                            st.error(f"Error during anomaly detection: {e}")
+            st.markdown("---") # Separator between tools
 
             # MLU 2: Advanced Customer/Order Segmentation (K-Means)
-            with st.expander("MLU 2: Advanced Order Segmentation (K-Means)", expanded=False):
-                st.markdown("Segment orders based on selected numeric features using K-Means clustering. This can help identify distinct groups of orders with similar characteristics (e.g., high value, low quantity).")
-                
-                numeric_cols_mlu2 = get_numeric_columns(df)
-                # For this dataset, 'Order ID' is unique per row, so segmenting individual transactions/items.
-                # If 'Order ID' could group multiple items, we'd aggregate first.
+            st.subheader("MLU 2: Advanced Order Segmentation (K-Means)")
+            st.markdown("Segment orders based on selected numeric features using K-Means clustering. This can help identify distinct groups of orders with similar characteristics (e.g., high value, low quantity).")
+            
+            numeric_cols_mlu2 = get_numeric_columns(df)
+            # For this dataset, 'Order ID' is unique per row, so segmenting individual transactions/items.
+            # If 'Order ID' could group multiple items, we'd aggregate first.
 
-                if len(numeric_cols_mlu2) < 1:
-                    st.warning("Segmentation requires at least one numeric column.")
-                else:
-                    features_mlu2 = st.multiselect("Select numeric features for segmentation:", 
-                                                   numeric_cols_mlu2, 
-                                                   default=[col for col in ['Amount', 'Qty'] if col in numeric_cols_mlu2], 
-                                                   key="mlu2_features")
-                    n_clusters_mlu2 = st.slider("Number of segments (clusters):", 2, 10, 3, key="mlu2_n_clusters")
+            if len(numeric_cols_mlu2) < 1:
+                st.warning("Segmentation requires at least one numeric column.")
+            else:
+                features_mlu2 = st.multiselect("Select numeric features for segmentation:", 
+                                               numeric_cols_mlu2, 
+                                               default=[col for col in ['Amount', 'Qty'] if col in numeric_cols_mlu2], 
+                                               key="mlu2_features")
+                n_clusters_mlu2 = st.slider("Number of segments (clusters):", 2, 10, 3, key="mlu2_n_clusters")
 
-                    if st.button("🧩 Run Order Segmentation", key="mlu2_run"):
-                        if not features_mlu2:
-                            st.warning("Please select at least one feature for segmentation.")
-                        else:
-                            try:
-                                mlu2_df_features = df[features_mlu2].copy().dropna()
-                                if mlu2_df_features.empty or len(mlu2_df_features) < n_clusters_mlu2:
-                                    st.warning(f"Not enough data after dropping NaNs for selected features, or fewer data points ({len(mlu2_df_features)}) than clusters ({n_clusters_mlu2}).")
-                                else:
-                                    scaler_mlu2 = StandardScaler()
-                                    scaled_features_mlu2 = scaler_mlu2.fit_transform(mlu2_df_features)
-                                    
-                                    kmeans_mlu2 = KMeans(n_clusters=n_clusters_mlu2, random_state=42, n_init='auto')
-                                    # Create a new DataFrame for results to avoid modifying original df directly in this scope
-                                    result_df_mlu2 = df.loc[mlu2_df_features.index].copy()
-                                    result_df_mlu2['Segment'] = kmeans_mlu2.fit_predict(scaled_features_mlu2)
-                                    
-                                    st.subheader("Order Segmentation Results")
-                                    st.write(f"Orders segmented into {n_clusters_mlu2} groups.")
-                                    st.write("Segment Profiles (Mean values of features):")
-                                    st.dataframe(result_df_mlu2.groupby('Segment')[features_mlu2].mean())
-                                    
-                                    st.write("Segment Sizes:")
-                                    st.dataframe(result_df_mlu2['Segment'].value_counts().sort_index())
+                if st.button("🧩 Run Order Segmentation", key="mlu2_run"):
+                    if not features_mlu2:
+                        st.warning("Please select at least one feature for segmentation.")
+                    else:
+                        try:
+                            mlu2_df_features = df[features_mlu2].copy().dropna()
+                            if mlu2_df_features.empty or len(mlu2_df_features) < n_clusters_mlu2:
+                                st.warning(f"Not enough data after dropping NaNs for selected features, or fewer data points ({len(mlu2_df_features)}) than clusters ({n_clusters_mlu2}).")
+                            else:
+                                scaler_mlu2 = StandardScaler()
+                                scaled_features_mlu2 = scaler_mlu2.fit_transform(mlu2_df_features)
+                                
+                                kmeans_mlu2 = KMeans(n_clusters=n_clusters_mlu2, random_state=42, n_init='auto')
+                                # Create a new DataFrame for results to avoid modifying original df directly in this scope
+                                result_df_mlu2 = df.loc[mlu2_df_features.index].copy()
+                                result_df_mlu2['Segment'] = kmeans_mlu2.fit_predict(scaled_features_mlu2)
+                                
+                                st.markdown("##### Order Segmentation Results") # Changed subheader level
+                                st.write(f"Orders segmented into {n_clusters_mlu2} groups.")
+                                st.write("Segment Profiles (Mean values of features):")
+                                st.dataframe(result_df_mlu2.groupby('Segment')[features_mlu2].mean())
+                                
+                                st.write("Segment Sizes:")
+                                st.dataframe(result_df_mlu2['Segment'].value_counts().sort_index())
 
-                                    if len(features_mlu2) >= 2:
-                                        st.markdown("#### Scatter Plot of Segments")
-                                        fig_mlu2, ax_mlu2 = plt.subplots()
-                                        # Use original (unscaled) features for plotting for interpretability, but color by segment
-                                        plot_data_mlu2 = result_df_mlu2.copy()
-                                        plot_data_mlu2[features_mlu2[0]] = mlu2_df_features[features_mlu2[0]] # ensure original values
-                                        plot_data_mlu2[features_mlu2[1]] = mlu2_df_features[features_mlu2[1]]
+                                if len(features_mlu2) >= 2:
+                                    st.markdown("###### Scatter Plot of Segments") # Changed subheader level
+                                    fig_mlu2, ax_mlu2 = plt.subplots()
+                                    # Use original (unscaled) features for plotting for interpretability, but color by segment
+                                    plot_data_mlu2 = result_df_mlu2.copy()
+                                    plot_data_mlu2[features_mlu2[0]] = mlu2_df_features[features_mlu2[0]] # ensure original values
+                                    plot_data_mlu2[features_mlu2[1]] = mlu2_df_features[features_mlu2[1]]
 
-                                        sns.scatterplot(data=plot_data_mlu2, x=features_mlu2[0], y=features_mlu2[1], hue='Segment', palette='viridis', ax=ax_mlu2, s=20)
-                                        ax_mlu2.set_title(f"Order Segments: {features_mlu2[0]} vs {features_mlu2[1]}")
-                                        st.pyplot(fig_mlu2)
-                                    
-                                    st.write("Sample Data with Segments (first 100):")
-                                    st.dataframe(result_df_mlu2[[*features_mlu2, 'Segment']].head(100))
+                                    sns.scatterplot(data=plot_data_mlu2, x=features_mlu2[0], y=features_mlu2[1], hue='Segment', palette='viridis', ax=ax_mlu2, s=20)
+                                    ax_mlu2.set_title(f"Order Segments: {features_mlu2[0]} vs {features_mlu2[1]}")
+                                    st.pyplot(fig_mlu2)
+                                
+                                st.write("Sample Data with Segments (first 100):")
+                                st.dataframe(result_df_mlu2[[*features_mlu2, 'Segment']].head(100))
 
-                            except Exception as e:
-                                st.error(f"Error during segmentation: {e}")
+                        except Exception as e:
+                            st.error(f"Error during segmentation: {e}")
 
         # Category 3: Product & Sales Pattern Analysis (PSPA)
         with st.expander("📦 Product & Sales Pattern Analysis (PSPA)", expanded=False):
             st.info("Analyze product sales patterns, velocity, and attribute-based trends.")
 
             # PSPA 1: Product Sales Velocity & Inventory Insights
-            with st.expander("PSPA 1: Product Sales Velocity & Inventory Insights", expanded=False):
-                st.markdown("Analyze how quickly products sell (sales per period) to identify fast-moving and slow-moving items. This requires 'SKU', 'Date', and 'Qty' columns.")
-                
-                all_cols_pspa1 = df.columns.tolist()
-                date_cols_pspa1 = date_cols
-                numeric_cols_pspa1 = get_numeric_columns(df)
+            st.subheader("PSPA 1: Product Sales Velocity & Inventory Insights")
+            st.markdown("Analyze how quickly products sell (sales per period) to identify fast-moving and slow-moving items. This requires 'SKU', 'Date', and 'Qty' columns.")
+            
+            all_cols_pspa1 = df.columns.tolist()
+            date_cols_pspa1 = date_cols
+            numeric_cols_pspa1 = get_numeric_columns(df)
 
-                sku_col_pspa1 = st.selectbox("Select Product ID/SKU column:", all_cols_pspa1, index=all_cols_pspa1.index('SKU') if 'SKU' in all_cols_pspa1 else 0, key="pspa1_sku")
-                date_col_pspa1 = st.selectbox("Select Date column:", date_cols_pspa1 if date_cols_pspa1 else all_cols_pspa1, index=date_cols_pspa1.index('Date') if 'Date' in date_cols_pspa1 else 0, key="pspa1_date")
-                qty_col_pspa1 = st.selectbox("Select Quantity Sold column:", numeric_cols_pspa1, index=numeric_cols_pspa1.index('Qty') if 'Qty' in numeric_cols_pspa1 else 0, key="pspa1_qty")
-                
-                time_period_pspa1 = st.selectbox("Aggregation period for velocity:", ["D", "W", "M"], index=1, format_func=lambda x: {"D":"Daily", "W":"Weekly", "M":"Monthly"}[x], key="pspa1_period")
-                top_n_pspa1 = st.slider("Number of top/bottom products to show:", 5, 20, 10, key="pspa1_top_n")
+            sku_col_pspa1 = st.selectbox("Select Product ID/SKU column:", all_cols_pspa1, index=all_cols_pspa1.index('SKU') if 'SKU' in all_cols_pspa1 else 0, key="pspa1_sku")
+            date_col_pspa1 = st.selectbox("Select Date column:", date_cols_pspa1 if date_cols_pspa1 else all_cols_pspa1, index=date_cols_pspa1.index('Date') if 'Date' in date_cols_pspa1 else 0, key="pspa1_date")
+            qty_col_pspa1 = st.selectbox("Select Quantity Sold column:", numeric_cols_pspa1, index=numeric_cols_pspa1.index('Qty') if 'Qty' in numeric_cols_pspa1 else 0, key="pspa1_qty")
+            
+            time_period_pspa1 = st.selectbox("Aggregation period for velocity:", ["D", "W", "M"], index=1, format_func=lambda x: {"D":"Daily", "W":"Weekly", "M":"Monthly"}[x], key="pspa1_period")
+            top_n_pspa1 = st.slider("Number of top/bottom products to show:", 5, 20, 10, key="pspa1_top_n")
 
-                if st.button("🏃‍♂️ Analyze Product Sales Velocity", key="pspa1_run"):
-                    if not all([sku_col_pspa1, date_col_pspa1, qty_col_pspa1]):
-                        st.warning("Please select SKU, Date, and Quantity columns.")
-                    else:
-                        try:
-                            pspa1_df = df[[sku_col_pspa1, date_col_pspa1, qty_col_pspa1]].copy()
-                            pspa1_df[date_col_pspa1] = pd.to_datetime(pspa1_df[date_col_pspa1], errors='coerce')
-                            pspa1_df = pspa1_df.dropna()
+            if st.button("🏃‍♂️ Analyze Product Sales Velocity", key="pspa1_run"):
+                if not all([sku_col_pspa1, date_col_pspa1, qty_col_pspa1]):
+                    st.warning("Please select SKU, Date, and Quantity columns.")
+                else:
+                    try:
+                        pspa1_df = df[[sku_col_pspa1, date_col_pspa1, qty_col_pspa1]].copy()
+                        pspa1_df[date_col_pspa1] = pd.to_datetime(pspa1_df[date_col_pspa1], errors='coerce')
+                        pspa1_df = pspa1_df.dropna()
 
-                            if pspa1_df.empty:
-                                st.warning("No data available after filtering for sales velocity analysis.")
-                            else:
-                                # Calculate total observation period for each product
-                                product_days = pspa1_df.groupby(sku_col_pspa1)[date_col_pspa1].agg(['min', 'max'])
-                                product_days['duration_days'] = (product_days['max'] - product_days['min']).dt.days + 1 # +1 to include start day
-                                
-                                # Calculate total quantity sold
-                                product_qty = pspa1_df.groupby(sku_col_pspa1)[qty_col_pspa1].sum()
-                                
-                                velocity_df = pd.concat([product_qty, product_days], axis=1)
-                                velocity_df = velocity_df.rename(columns={qty_col_pspa1: 'TotalQtySold'})
-                                
-                                # Calculate velocity based on selected period
-                                if time_period_pspa1 == "D":
-                                    velocity_df['SalesVelocity'] = velocity_df['TotalQtySold'] / velocity_df['duration_days']
-                                    velocity_unit = "per day"
-                                elif time_period_pspa1 == "W":
-                                    velocity_df['SalesVelocity'] = velocity_df['TotalQtySold'] / (velocity_df['duration_days'] / 7)
-                                    velocity_unit = "per week"
-                                elif time_period_pspa1 == "M":
-                                    velocity_df['SalesVelocity'] = velocity_df['TotalQtySold'] / (velocity_df['duration_days'] / 30.44) # Avg days per month
-                                    velocity_unit = "per month"
-                                
-                                velocity_df = velocity_df.replace([np.inf, -np.inf], 0).fillna(0) # Handle division by zero if duration is 0
+                        if pspa1_df.empty:
+                            st.warning("No data available after filtering for sales velocity analysis.")
+                        else:
+                            # Calculate total observation period for each product
+                            product_days = pspa1_df.groupby(sku_col_pspa1)[date_col_pspa1].agg(['min', 'max'])
+                            product_days['duration_days'] = (product_days['max'] - product_days['min']).dt.days + 1 # +1 to include start day
+                            
+                            # Calculate total quantity sold
+                            product_qty = pspa1_df.groupby(sku_col_pspa1)[qty_col_pspa1].sum()
+                            
+                            velocity_df = pd.concat([product_qty, product_days], axis=1)
+                            velocity_df = velocity_df.rename(columns={qty_col_pspa1: 'TotalQtySold'})
+                            
+                            # Calculate velocity based on selected period
+                            if time_period_pspa1 == "D":
+                                velocity_df['SalesVelocity'] = velocity_df['TotalQtySold'] / velocity_df['duration_days']
+                                velocity_unit = "per day"
+                            elif time_period_pspa1 == "W":
+                                velocity_df['SalesVelocity'] = velocity_df['TotalQtySold'] / (velocity_df['duration_days'] / 7)
+                                velocity_unit = "per week"
+                            elif time_period_pspa1 == "M":
+                                velocity_df['SalesVelocity'] = velocity_df['TotalQtySold'] / (velocity_df['duration_days'] / 30.44) # Avg days per month
+                                velocity_unit = "per month"
+                            
+                            velocity_df = velocity_df.replace([np.inf, -np.inf], 0).fillna(0) # Handle division by zero if duration is 0
 
-                                st.subheader(f"Product Sales Velocity ({velocity_unit})")
-                                st.markdown(f"#### Top {top_n_pspa1} Fast-Moving Products")
-                                st.dataframe(velocity_df.sort_values(by='SalesVelocity', ascending=False).head(top_n_pspa1))
-                                
-                                st.markdown(f"#### Top {top_n_pspa1} Slow-Moving Products (Sales Velocity > 0)")
-                                st.dataframe(velocity_df[velocity_df['SalesVelocity'] > 0].sort_values(by='SalesVelocity', ascending=True).head(top_n_pspa1))
-                                
-                                # Plot distribution of sales velocity
-                                fig_pspa1_vel, ax_pspa1_vel = plt.subplots()
-                                sns.histplot(velocity_df[velocity_df['SalesVelocity'] > 0]['SalesVelocity'], kde=True, ax=ax_pspa1_vel, bins=30)
-                                ax_pspa1_vel.set_title(f"Distribution of Sales Velocity ({velocity_unit})")
-                                ax_pspa1_vel.set_xlabel(f"Sales Velocity ({velocity_unit})")
-                                st.pyplot(fig_pspa1_vel)
+                            st.markdown(f"##### Product Sales Velocity ({velocity_unit})") # Changed subheader level
+                            st.markdown(f"###### Top {top_n_pspa1} Fast-Moving Products") # Changed subheader level
+                            st.dataframe(velocity_df.sort_values(by='SalesVelocity', ascending=False).head(top_n_pspa1))
+                            
+                            st.markdown(f"###### Top {top_n_pspa1} Slow-Moving Products (Sales Velocity > 0)") # Changed subheader level
+                            st.dataframe(velocity_df[velocity_df['SalesVelocity'] > 0].sort_values(by='SalesVelocity', ascending=True).head(top_n_pspa1))
+                            
+                            # Plot distribution of sales velocity
+                            fig_pspa1_vel, ax_pspa1_vel = plt.subplots()
+                            sns.histplot(velocity_df[velocity_df['SalesVelocity'] > 0]['SalesVelocity'], kde=True, ax=ax_pspa1_vel, bins=30)
+                            ax_pspa1_vel.set_title(f"Distribution of Sales Velocity ({velocity_unit})")
+                            ax_pspa1_vel.set_xlabel(f"Sales Velocity ({velocity_unit})")
+                            st.pyplot(fig_pspa1_vel)
 
-                        except Exception as e:
-                            st.error(f"Error during sales velocity analysis: {e}")
+                    except Exception as e:
+                        st.error(f"Error during sales velocity analysis: {e}")
+            st.markdown("---")
 
             # PSPA 2: Price Elasticity Estimation (Simplified)
-            with st.expander("PSPA 2: Price Elasticity Estimation (Simplified)", expanded=False):
-                st.markdown("Explore the relationship between price and quantity sold for specific products. This is a simplified analysis and not a formal elasticity calculation. Requires 'SKU', 'Date', 'Amount', 'Qty'.")
-                
-                all_cols_pspa2 = df.columns.tolist()
-                date_cols_pspa2 = date_cols
-                numeric_cols_pspa2 = get_numeric_columns(df)
+            st.subheader("PSPA 2: Price Elasticity Estimation (Simplified)")
+            st.markdown("Explore the relationship between price and quantity sold for specific products. This is a simplified analysis and not a formal elasticity calculation. Requires 'SKU', 'Date', 'Amount', 'Qty'.")
+            
+            all_cols_pspa2 = df.columns.tolist()
+            date_cols_pspa2 = date_cols
+            numeric_cols_pspa2 = get_numeric_columns(df)
 
-                sku_col_pspa2 = st.selectbox("Select Product ID/SKU column:", all_cols_pspa2, index=all_cols_pspa2.index('SKU') if 'SKU' in all_cols_pspa2 else 0, key="pspa2_sku")
-                date_col_pspa2 = st.selectbox("Select Date column:", date_cols_pspa2 if date_cols_pspa2 else all_cols_pspa2, index=date_cols_pspa2.index('Date') if 'Date' in date_cols_pspa2 else 0, key="pspa2_date")
-                amount_col_pspa2 = st.selectbox("Select Sales Amount column:", numeric_cols_pspa2, index=numeric_cols_pspa2.index('Amount') if 'Amount' in numeric_cols_pspa2 else 0, key="pspa2_amount")
-                qty_col_pspa2 = st.selectbox("Select Quantity Sold column:", numeric_cols_pspa2, index=numeric_cols_pspa2.index('Qty') if 'Qty' in numeric_cols_pspa2 else 0, key="pspa2_qty")
-                
-                available_skus_pspa2 = df[sku_col_pspa2].dropna().unique()
-                selected_sku_pspa2 = st.selectbox("Select a specific SKU to analyze:", available_skus_pspa2, key="pspa2_selected_sku")
+            sku_col_pspa2 = st.selectbox("Select Product ID/SKU column:", all_cols_pspa2, index=all_cols_pspa2.index('SKU') if 'SKU' in all_cols_pspa2 else 0, key="pspa2_sku")
+            date_col_pspa2 = st.selectbox("Select Date column:", date_cols_pspa2 if date_cols_pspa2 else all_cols_pspa2, index=date_cols_pspa2.index('Date') if 'Date' in date_cols_pspa2 else 0, key="pspa2_date")
+            amount_col_pspa2 = st.selectbox("Select Sales Amount column:", numeric_cols_pspa2, index=numeric_cols_pspa2.index('Amount') if 'Amount' in numeric_cols_pspa2 else 0, key="pspa2_amount")
+            qty_col_pspa2 = st.selectbox("Select Quantity Sold column:", numeric_cols_pspa2, index=numeric_cols_pspa2.index('Qty') if 'Qty' in numeric_cols_pspa2 else 0, key="pspa2_qty")
+            
+            available_skus_pspa2 = df[sku_col_pspa2].dropna().unique()
+            selected_sku_pspa2 = st.selectbox("Select a specific SKU to analyze:", available_skus_pspa2, key="pspa2_selected_sku")
 
-                if st.button("📈 Analyze Price-Quantity Relationship", key="pspa2_run"):
-                    if not all([sku_col_pspa2, date_col_pspa2, amount_col_pspa2, qty_col_pspa2, selected_sku_pspa2]):
-                        st.warning("Please select all required columns and a specific SKU.")
-                    else:
-                        try:
-                            pspa2_df = df[df[sku_col_pspa2] == selected_sku_pspa2].copy()
-                            pspa2_df = pspa2_df[[date_col_pspa2, amount_col_pspa2, qty_col_pspa2]].dropna()
+            if st.button("📈 Analyze Price-Quantity Relationship", key="pspa2_run"):
+                if not all([sku_col_pspa2, date_col_pspa2, amount_col_pspa2, qty_col_pspa2, selected_sku_pspa2]):
+                    st.warning("Please select all required columns and a specific SKU.")
+                else:
+                    try:
+                        pspa2_df = df[df[sku_col_pspa2] == selected_sku_pspa2].copy()
+                        pspa2_df = pspa2_df[[date_col_pspa2, amount_col_pspa2, qty_col_pspa2]].dropna()
+                        
+                        if pspa2_df.empty or len(pspa2_df) < 2:
+                            st.warning(f"Not enough data for SKU '{selected_sku_pspa2}' to analyze price-quantity relationship.")
+                        else:
+                            pspa2_df['PricePerUnit'] = pspa2_df[amount_col_pspa2] / pspa2_df[qty_col_pspa2].replace(0, np.nan)
+                            pspa2_df = pspa2_df.dropna(subset=['PricePerUnit'])
                             
                             if pspa2_df.empty or len(pspa2_df) < 2:
-                                st.warning(f"Not enough data for SKU '{selected_sku_pspa2}' to analyze price-quantity relationship.")
+                                st.warning(f"Not enough data for SKU '{selected_sku_pspa2}' after calculating price per unit.")
                             else:
-                                pspa2_df['PricePerUnit'] = pspa2_df[amount_col_pspa2] / pspa2_df[qty_col_pspa2].replace(0, np.nan)
-                                pspa2_df = pspa2_df.dropna(subset=['PricePerUnit'])
+                                st.markdown(f"##### Price vs. Quantity for SKU: {selected_sku_pspa2}") # Changed subheader level
                                 
-                                if pspa2_df.empty or len(pspa2_df) < 2:
-                                    st.warning(f"Not enough data for SKU '{selected_sku_pspa2}' after calculating price per unit.")
+                                fig_pspa2, ax_pspa2 = plt.subplots()
+                                sns.scatterplot(data=pspa2_df, x='PricePerUnit', y=qty_col_pspa2, ax=ax_pspa2)
+                                ax_pspa2.set_title(f"Price per Unit vs. Quantity Sold for {selected_sku_pspa2}")
+                                ax_pspa2.set_xlabel("Price Per Unit")
+                                ax_pspa2.set_ylabel(f"Quantity Sold ({qty_col_pspa2})")
+                                st.pyplot(fig_pspa2)
+
+                                st.write("Data points used for the plot:")
+                                st.dataframe(pspa2_df[['PricePerUnit', qty_col_pspa2]].head(20))
+
+                                if len(pspa2_df['PricePerUnit'].unique()) > 1 and len(pspa2_df) > 2: # Need variation in price for regression
+                                    X_pspa2 = pspa2_df[['PricePerUnit']]
+                                    y_pspa2 = pspa2_df[qty_col_pspa2]
+                                    model_pspa2 = LinearRegression()
+                                    model_pspa2.fit(X_pspa2, y_pspa2)
+                                    st.markdown("###### Simplified Linear Regression (Quantity ~ Price)") # Changed subheader level
+                                    st.write(f"Coefficient (slope) for PricePerUnit: {model_pspa2.coef_[0]:.2f}")
+                                    st.write(f"Intercept: {model_pspa2.intercept_:.2f}")
+                                    st.caption("Note: A negative coefficient suggests that as price increases, quantity sold tends to decrease. This is a very simplified model.")
                                 else:
-                                    st.subheader(f"Price vs. Quantity for SKU: {selected_sku_pspa2}")
-                                    
-                                    fig_pspa2, ax_pspa2 = plt.subplots()
-                                    sns.scatterplot(data=pspa2_df, x='PricePerUnit', y=qty_col_pspa2, ax=ax_pspa2)
-                                    ax_pspa2.set_title(f"Price per Unit vs. Quantity Sold for {selected_sku_pspa2}")
-                                    ax_pspa2.set_xlabel("Price Per Unit")
-                                    ax_pspa2.set_ylabel(f"Quantity Sold ({qty_col_pspa2})")
-                                    st.pyplot(fig_pspa2)
-
-                                    st.write("Data points used for the plot:")
-                                    st.dataframe(pspa2_df[['PricePerUnit', qty_col_pspa2]].head(20))
-
-                                    if len(pspa2_df['PricePerUnit'].unique()) > 1 and len(pspa2_df) > 2: # Need variation in price for regression
-                                        X_pspa2 = pspa2_df[['PricePerUnit']]
-                                        y_pspa2 = pspa2_df[qty_col_pspa2]
-                                        model_pspa2 = LinearRegression()
-                                        model_pspa2.fit(X_pspa2, y_pspa2)
-                                        st.markdown("#### Simplified Linear Regression (Quantity ~ Price)")
-                                        st.write(f"Coefficient (slope) for PricePerUnit: {model_pspa2.coef_[0]:.2f}")
-                                        st.write(f"Intercept: {model_pspa2.intercept_:.2f}")
-                                        st.caption("Note: A negative coefficient suggests that as price increases, quantity sold tends to decrease. This is a very simplified model.")
-                                    else:
-                                        st.info("Not enough variation in price or data points for a meaningful linear regression.")
-                        except Exception as e:
-                            st.error(f"Error during price-quantity analysis: {e}")
+                                    st.info("Not enough variation in price or data points for a meaningful linear regression.")
+                    except Exception as e:
+                        st.error(f"Error during price-quantity analysis: {e}")
+            st.markdown("---")
 
             # PSPA 3: Sales Trend by Product Attribute
-            with st.expander("PSPA 3: Sales Trend by Product Attribute", expanded=False):
-                st.markdown("Analyze sales trends (Amount or Quantity) over time, grouped by a selected product attribute (e.g., 'Size', 'Style', 'Category').")
+            st.subheader("PSPA 3: Sales Trend by Product Attribute")
+            st.markdown("Analyze sales trends (Amount or Quantity) over time, grouped by a selected product attribute (e.g., 'Size', 'Style', 'Category').")
 
-                all_cols_pspa3 = df.columns.tolist()
-                date_cols_pspa3 = date_cols
-                numeric_cols_pspa3 = get_numeric_columns(df)
-                categorical_cols_pspa3 = get_categorical_columns(df, nunique_threshold=50) # Allow more unique values for attributes
+            all_cols_pspa3 = df.columns.tolist()
+            date_cols_pspa3 = date_cols
+            numeric_cols_pspa3 = get_numeric_columns(df)
+            categorical_cols_pspa3 = get_categorical_columns(df, nunique_threshold=50) # Allow more unique values for attributes
 
-                date_col_pspa3 = st.selectbox("Select Date column:", date_cols_pspa3 if date_cols_pspa3 else all_cols_pspa3, index=date_cols_pspa3.index('Date') if 'Date' in date_cols_pspa3 else 0, key="pspa3_date")
-                value_col_pspa3 = st.selectbox("Select Value column for trend (Amount or Qty):", numeric_cols_pspa3, index=numeric_cols_pspa3.index('Amount') if 'Amount' in numeric_cols_pspa3 else (numeric_cols_pspa3.index('Qty') if 'Qty' in numeric_cols_pspa3 else 0), key="pspa3_value")
-                attribute_col_pspa3 = st.selectbox("Select Product Attribute column (Categorical):", [None] + categorical_cols_pspa3, index=0, key="pspa3_attribute")
-                
-                aggregation_freq_pspa3 = st.selectbox("Aggregate trend by:", ["W", "M", "Q"], index=1, format_func=lambda x: {"W":"Weekly", "M":"Monthly", "Q":"Quarterly"}[x], key="pspa3_freq")
+            date_col_pspa3 = st.selectbox("Select Date column:", date_cols_pspa3 if date_cols_pspa3 else all_cols_pspa3, index=date_cols_pspa3.index('Date') if 'Date' in date_cols_pspa3 else 0, key="pspa3_date")
+            value_col_pspa3 = st.selectbox("Select Value column for trend (Amount or Qty):", numeric_cols_pspa3, index=numeric_cols_pspa3.index('Amount') if 'Amount' in numeric_cols_pspa3 else (numeric_cols_pspa3.index('Qty') if 'Qty' in numeric_cols_pspa3 else 0), key="pspa3_value")
+            attribute_col_pspa3 = st.selectbox("Select Product Attribute column (Categorical):", [None] + categorical_cols_pspa3, index=0, key="pspa3_attribute")
+            
+            aggregation_freq_pspa3 = st.selectbox("Aggregate trend by:", ["W", "M", "Q"], index=1, format_func=lambda x: {"W":"Weekly", "M":"Monthly", "Q":"Quarterly"}[x], key="pspa3_freq")
 
-                if st.button("📊 Analyze Sales Trend by Attribute", key="pspa3_run"):
-                    if not all([date_col_pspa3, value_col_pspa3, attribute_col_pspa3]):
-                        st.warning("Please select Date, Value, and Attribute columns.")
-                    else:
-                        try:
-                            pspa3_df = df[[date_col_pspa3, value_col_pspa3, attribute_col_pspa3]].copy()
-                            pspa3_df[date_col_pspa3] = pd.to_datetime(pspa3_df[date_col_pspa3], errors='coerce')
-                            pspa3_df = pspa3_df.dropna()
+            if st.button("📊 Analyze Sales Trend by Attribute", key="pspa3_run"):
+                if not all([date_col_pspa3, value_col_pspa3, attribute_col_pspa3]):
+                    st.warning("Please select Date, Value, and Attribute columns.")
+                else:
+                    try:
+                        pspa3_df = df[[date_col_pspa3, value_col_pspa3, attribute_col_pspa3]].copy()
+                        pspa3_df[date_col_pspa3] = pd.to_datetime(pspa3_df[date_col_pspa3], errors='coerce')
+                        pspa3_df = pspa3_df.dropna()
 
-                            if pspa3_df.empty:
-                                st.warning("No data available after filtering for attribute trend analysis.")
+                        if pspa3_df.empty:
+                            st.warning("No data available after filtering for attribute trend analysis.")
+                        else:
+                            trend_data_pspa3 = pspa3_df.groupby([pd.Grouper(key=date_col_pspa3, freq=aggregation_freq_pspa3), attribute_col_pspa3])[value_col_pspa3].sum().unstack()
+                            
+                            if trend_data_pspa3.empty:
+                                st.warning(f"No trend data to display for attribute '{attribute_col_pspa3}'.")
                             else:
-                                trend_data_pspa3 = pspa3_df.groupby([pd.Grouper(key=date_col_pspa3, freq=aggregation_freq_pspa3), attribute_col_pspa3])[value_col_pspa3].sum().unstack()
+                                st.markdown(f"##### Sales Trend of '{value_col_pspa3}' by '{attribute_col_pspa3}' ({aggregation_freq_pspa3} Aggregation)") # Changed subheader level
+                                st.line_chart(trend_data_pspa3.fillna(0)) # Fill NaNs for plotting if some attributes don't appear in all periods
                                 
-                                if trend_data_pspa3.empty:
-                                    st.warning(f"No trend data to display for attribute '{attribute_col_pspa3}'.")
-                                else:
-                                    st.subheader(f"Sales Trend of '{value_col_pspa3}' by '{attribute_col_pspa3}' ({aggregation_freq_pspa3} Aggregation)")
-                                    st.line_chart(trend_data_pspa3.fillna(0)) # Fill NaNs for plotting if some attributes don't appear in all periods
-                                    
-                                    st.write("Trend Data Table (Top 20 rows):")
-                                    st.dataframe(trend_data_pspa3.head(20))
-                        except Exception as e:
-                            st.error(f"Error during sales trend by attribute analysis: {e}")
+                                st.write("Trend Data Table (Top 20 rows):")
+                                st.dataframe(trend_data_pspa3.head(20))
+                    except Exception as e:
+                        st.error(f"Error during sales trend by attribute analysis: {e}")
 
         # Category 4: Geospatial & Fulfillment Insights (GFI)
         with st.expander("🌍 Geospatial & Fulfillment Insights (GFI)", expanded=False):
             st.info("Analyze sales performance related to geography and fulfillment methods.")
 
             # GFI 1: Shipping Performance Analysis
-            with st.expander("GFI 1: Shipping Performance Analysis", expanded=False):
-                st.markdown("Analyze sales volume or value by 'ship-service-level' and optionally by region ('ship-state').")
+            st.subheader("GFI 1: Shipping Performance Analysis")
+            st.markdown("Analyze sales volume or value by 'ship-service-level' and optionally by region ('ship-state').")
 
-                all_cols_gfi1 = df.columns.tolist()
-                numeric_cols_gfi1 = get_numeric_columns(df)
-                
-                service_level_col_gfi1 = st.selectbox("Select Shipping Service Level column:", all_cols_gfi1, index=all_cols_gfi1.index('ship-service-level') if 'ship-service-level' in all_cols_gfi1 else 0, key="gfi1_service_level")
-                value_col_gfi1 = st.selectbox("Select Value column (Amount or Qty):", numeric_cols_gfi1, index=numeric_cols_gfi1.index('Amount') if 'Amount' in numeric_cols_gfi1 else (numeric_cols_gfi1.index('Qty') if 'Qty' in numeric_cols_gfi1 else 0), key="gfi1_value")
-                state_col_gfi1 = st.selectbox("Optional: Select State column for regional breakdown:", [None] + all_cols_gfi1, index=([None] + all_cols_gfi1).index('ship-state') if 'ship-state' in all_cols_gfi1 else 0, key="gfi1_state")
+            all_cols_gfi1 = df.columns.tolist()
+            numeric_cols_gfi1 = get_numeric_columns(df)
+            
+            service_level_col_gfi1 = st.selectbox("Select Shipping Service Level column:", all_cols_gfi1, index=all_cols_gfi1.index('ship-service-level') if 'ship-service-level' in all_cols_gfi1 else 0, key="gfi1_service_level")
+            value_col_gfi1 = st.selectbox("Select Value column (Amount or Qty):", numeric_cols_gfi1, index=numeric_cols_gfi1.index('Amount') if 'Amount' in numeric_cols_gfi1 else (numeric_cols_gfi1.index('Qty') if 'Qty' in numeric_cols_gfi1 else 0), key="gfi1_value")
+            state_col_gfi1 = st.selectbox("Optional: Select State column for regional breakdown:", [None] + all_cols_gfi1, index=([None] + all_cols_gfi1).index('ship-state') if 'ship-state' in all_cols_gfi1 else 0, key="gfi1_state")
 
-                if st.button("🚚 Analyze Shipping Performance", key="gfi1_run"):
-                    if not all([service_level_col_gfi1, value_col_gfi1]):
-                        st.warning("Please select Shipping Service Level and Value columns.")
-                    else:
-                        try:
-                            gfi1_df = df.copy()
-                            group_by_cols = [service_level_col_gfi1]
+            if st.button("🚚 Analyze Shipping Performance", key="gfi1_run"):
+                if not all([service_level_col_gfi1, value_col_gfi1]):
+                    st.warning("Please select Shipping Service Level and Value columns.")
+                else:
+                    try:
+                        gfi1_df = df.copy()
+                        group_by_cols = [service_level_col_gfi1]
+                        if state_col_gfi1:
+                            group_by_cols.append(state_col_gfi1)
+                        
+                        gfi1_analysis = gfi1_df.groupby(group_by_cols)[value_col_gfi1].agg(['sum', 'count', 'mean']).reset_index()
+                        gfi1_analysis.columns = group_by_cols + [f'Total_{value_col_gfi1}', 'Order_Count', f'Avg_{value_col_gfi1}_per_Order']
+                        gfi1_analysis = gfi1_analysis.sort_values(by=f'Total_{value_col_gfi1}', ascending=False)
+
+                        if gfi1_analysis.empty:
+                            st.warning("No data for shipping performance analysis.")
+                        else:
+                            st.markdown(f"##### Shipping Performance by '{service_level_col_gfi1}'") # Changed subheader level
+                            st.dataframe(gfi1_analysis.head(20))
+
+                            # Plot total value by service level
+                            fig_gfi1_total, ax_gfi1_total = plt.subplots()
+                            summary_total_gfi1 = gfi1_df.groupby(service_level_col_gfi1)[value_col_gfi1].sum().sort_values(ascending=False)
+                            summary_total_gfi1.plot(kind='bar', ax=ax_gfi1_total)
+                            ax_gfi1_total.set_title(f'Total {value_col_gfi1} by {service_level_col_gfi1}')
+                            ax_gfi1_total.set_ylabel(f'Total {value_col_gfi1}')
+                            plt.xticks(rotation=45, ha="right")
+                            plt.tight_layout()
+                            st.pyplot(fig_gfi1_total)
+
                             if state_col_gfi1:
-                                group_by_cols.append(state_col_gfi1)
-                            
-                            gfi1_analysis = gfi1_df.groupby(group_by_cols)[value_col_gfi1].agg(['sum', 'count', 'mean']).reset_index()
-                            gfi1_analysis.columns = group_by_cols + [f'Total_{value_col_gfi1}', 'Order_Count', f'Avg_{value_col_gfi1}_per_Order']
-                            gfi1_analysis = gfi1_analysis.sort_values(by=f'Total_{value_col_gfi1}', ascending=False)
+                                st.markdown(f"###### Top States by Total {value_col_gfi1} (Overall)") # Changed subheader level
+                                top_states_gfi1 = gfi1_df.groupby(state_col_gfi1)[value_col_gfi1].sum().nlargest(10)
+                                st.bar_chart(top_states_gfi1)
 
-                            if gfi1_analysis.empty:
-                                st.warning("No data for shipping performance analysis.")
-                            else:
-                                st.subheader(f"Shipping Performance by '{service_level_col_gfi1}'")
-                                st.dataframe(gfi1_analysis.head(20))
-
-                                # Plot total value by service level
-                                fig_gfi1_total, ax_gfi1_total = plt.subplots()
-                                summary_total_gfi1 = gfi1_df.groupby(service_level_col_gfi1)[value_col_gfi1].sum().sort_values(ascending=False)
-                                summary_total_gfi1.plot(kind='bar', ax=ax_gfi1_total)
-                                ax_gfi1_total.set_title(f'Total {value_col_gfi1} by {service_level_col_gfi1}')
-                                ax_gfi1_total.set_ylabel(f'Total {value_col_gfi1}')
-                                plt.xticks(rotation=45, ha="right")
-                                plt.tight_layout()
-                                st.pyplot(fig_gfi1_total)
-
-                                if state_col_gfi1:
-                                    st.markdown(f"#### Top States by Total {value_col_gfi1} (Overall)")
-                                    top_states_gfi1 = gfi1_df.groupby(state_col_gfi1)[value_col_gfi1].sum().nlargest(10)
-                                    st.bar_chart(top_states_gfi1)
-
-                        except Exception as e:
-                            st.error(f"Error during shipping performance analysis: {e}")
+                    except Exception as e:
+                        st.error(f"Error during shipping performance analysis: {e}")
+            st.markdown("---")
 
             # GFI 2: Regional Product Preferences
-            with st.expander("GFI 2: Regional Product Preferences", expanded=False):
-                st.markdown("Identify which products or categories are most popular in different regions (e.g., 'ship-state').")
+            st.subheader("GFI 2: Regional Product Preferences")
+            st.markdown("Identify which products or categories are most popular in different regions (e.g., 'ship-state').")
 
-                all_cols_gfi2 = df.columns.tolist()
-                numeric_cols_gfi2 = get_numeric_columns(df)
-                
-                product_level_gfi2 = st.radio("Analyze by:", ["SKU", "Category"], key="gfi2_product_level")
-                product_col_gfi2 = st.selectbox(f"Select {product_level_gfi2} column:", all_cols_gfi2, index=all_cols_gfi2.index(product_level_gfi2) if product_level_gfi2 in all_cols_gfi2 else 0, key="gfi2_product")
-                region_col_gfi2 = st.selectbox("Select Region column (e.g., ship-state):", all_cols_gfi2, index=all_cols_gfi2.index('ship-state') if 'ship-state' in all_cols_gfi2 else 0, key="gfi2_region")
-                value_col_gfi2 = st.selectbox("Select Value column for preference (Amount or Qty):", numeric_cols_gfi2, index=numeric_cols_gfi2.index('Amount') if 'Amount' in numeric_cols_gfi2 else (numeric_cols_gfi2.index('Qty') if 'Qty' in numeric_cols_gfi2 else 0), key="gfi2_value")
-                top_n_gfi2 = st.slider("Number of top products/categories per region to show:", 1, 10, 3, key="gfi2_top_n")
+            all_cols_gfi2 = df.columns.tolist()
+            numeric_cols_gfi2 = get_numeric_columns(df)
+            
+            product_level_gfi2 = st.radio("Analyze by:", ["SKU", "Category"], key="gfi2_product_level")
+            product_col_gfi2 = st.selectbox(f"Select {product_level_gfi2} column:", all_cols_gfi2, index=all_cols_gfi2.index(product_level_gfi2) if product_level_gfi2 in all_cols_gfi2 else 0, key="gfi2_product")
+            region_col_gfi2 = st.selectbox("Select Region column (e.g., ship-state):", all_cols_gfi2, index=all_cols_gfi2.index('ship-state') if 'ship-state' in all_cols_gfi2 else 0, key="gfi2_region")
+            value_col_gfi2 = st.selectbox("Select Value column for preference (Amount or Qty):", numeric_cols_gfi2, index=numeric_cols_gfi2.index('Amount') if 'Amount' in numeric_cols_gfi2 else (numeric_cols_gfi2.index('Qty') if 'Qty' in numeric_cols_gfi2 else 0), key="gfi2_value")
+            top_n_gfi2 = st.slider("Number of top products/categories per region to show:", 1, 10, 3, key="gfi2_top_n")
 
-                if st.button("🗺️ Analyze Regional Preferences", key="gfi2_run"):
-                    if not all([product_col_gfi2, region_col_gfi2, value_col_gfi2]):
-                        st.warning("Please select Product/Category, Region, and Value columns.")
-                    else:
-                        try:
-                            gfi2_df = df[[product_col_gfi2, region_col_gfi2, value_col_gfi2]].copy().dropna()
-                            if gfi2_df.empty:
-                                st.warning("No data available for regional preference analysis.")
+            if st.button("🗺️ Analyze Regional Preferences", key="gfi2_run"):
+                if not all([product_col_gfi2, region_col_gfi2, value_col_gfi2]):
+                    st.warning("Please select Product/Category, Region, and Value columns.")
+                else:
+                    try:
+                        gfi2_df = df[[product_col_gfi2, region_col_gfi2, value_col_gfi2]].copy().dropna()
+                        if gfi2_df.empty:
+                            st.warning("No data available for regional preference analysis.")
+                        else:
+                            regional_summary = gfi2_df.groupby([region_col_gfi2, product_col_gfi2])[value_col_gfi2].sum().reset_index()
+                            
+                            st.markdown(f"##### Top {top_n_gfi2} {product_level_gfi2}s by {value_col_gfi2} per {region_col_gfi2}") # Changed subheader level
+                            
+                            top_prefs_display = regional_summary.loc[regional_summary.groupby(region_col_gfi2)[value_col_gfi2].nlargest(top_n_gfi2).reset_index(level=0, drop=True).index]
+                            top_prefs_display = top_prefs_display.sort_values(by=[region_col_gfi2, value_col_gfi2], ascending=[True, False])
+
+                            if top_prefs_display.empty:
+                                st.info("Could not determine top preferences with current settings.")
                             else:
-                                regional_summary = gfi2_df.groupby([region_col_gfi2, product_col_gfi2])[value_col_gfi2].sum().reset_index()
-                                
-                                st.subheader(f"Top {top_n_gfi2} {product_level_gfi2}s by {value_col_gfi2} per {region_col_gfi2}")
-                                
-                                top_prefs_display = regional_summary.loc[regional_summary.groupby(region_col_gfi2)[value_col_gfi2].nlargest(top_n_gfi2).reset_index(level=0, drop=True).index]
-                                top_prefs_display = top_prefs_display.sort_values(by=[region_col_gfi2, value_col_gfi2], ascending=[True, False])
+                                st.dataframe(top_prefs_display)
 
-                                if top_prefs_display.empty:
-                                    st.info("Could not determine top preferences with current settings.")
-                                else:
-                                    st.dataframe(top_prefs_display)
-
-                                    # Optional: Heatmap for top N regions and top N products/categories
-                                    if regional_summary[region_col_gfi2].nunique() < 30 and regional_summary[product_col_gfi2].nunique() < 50 : # Avoid overly large heatmaps
-                                        pivot_table_gfi2 = pd.pivot_table(regional_summary, values=value_col_gfi2, index=product_col_gfi2, columns=region_col_gfi2, aggfunc='sum', fill_value=0)
-                                        # Select top N products and regions for a more readable heatmap
-                                        top_overall_products = pivot_table_gfi2.sum(axis=1).nlargest(15).index
-                                        top_overall_regions = pivot_table_gfi2.sum(axis=0).nlargest(10).index
-                                        
-                                        if not top_overall_products.empty and not top_overall_regions.empty:
-                                            heatmap_data_gfi2 = pivot_table_gfi2.loc[top_overall_products, top_overall_regions]
-                                            if not heatmap_data_gfi2.empty:
-                                                st.markdown(f"#### Heatmap: {value_col_gfi2} of Top {product_level_gfi2}s vs. Top {region_col_gfi2}s")
-                                                fig_gfi2_hm, ax_gfi2_hm = plt.subplots(figsize=(12, max(8, len(top_overall_products)*0.5)))
-                                                sns.heatmap(heatmap_data_gfi2, annot=False, cmap="YlGnBu", ax=ax_gfi2_hm, fmt=".0f") # Annot can be slow for large heatmaps
-                                                plt.xticks(rotation=45, ha="right")
-                                                plt.yticks(rotation=0)
-                                                plt.tight_layout()
-                                                st.pyplot(fig_gfi2_hm)
-                                            else:
-                                                st.info("Not enough overlapping data for heatmap of top items/regions.")
+                                # Optional: Heatmap for top N regions and top N products/categories
+                                if regional_summary[region_col_gfi2].nunique() < 30 and regional_summary[product_col_gfi2].nunique() < 50 : # Avoid overly large heatmaps
+                                    pivot_table_gfi2 = pd.pivot_table(regional_summary, values=value_col_gfi2, index=product_col_gfi2, columns=region_col_gfi2, aggfunc='sum', fill_value=0)
+                                    # Select top N products and regions for a more readable heatmap
+                                    top_overall_products = pivot_table_gfi2.sum(axis=1).nlargest(15).index
+                                    top_overall_regions = pivot_table_gfi2.sum(axis=0).nlargest(10).index
+                                    
+                                    if not top_overall_products.empty and not top_overall_regions.empty:
+                                        heatmap_data_gfi2 = pivot_table_gfi2.loc[top_overall_products, top_overall_regions]
+                                        if not heatmap_data_gfi2.empty:
+                                            st.markdown(f"###### Heatmap: {value_col_gfi2} of Top {product_level_gfi2}s vs. Top {region_col_gfi2}s") # Changed subheader level
+                                            fig_gfi2_hm, ax_gfi2_hm = plt.subplots(figsize=(12, max(8, len(top_overall_products)*0.5)))
+                                            sns.heatmap(heatmap_data_gfi2, annot=False, cmap="YlGnBu", ax=ax_gfi2_hm, fmt=".0f") # Annot can be slow for large heatmaps
+                                            plt.xticks(rotation=45, ha="right")
+                                            plt.yticks(rotation=0)
+                                            plt.tight_layout()
+                                            st.pyplot(fig_gfi2_hm)
                                         else:
-                                            st.info("Not enough distinct products or regions for a summary heatmap.")
+                                            st.info("Not enough overlapping data for heatmap of top items/regions.")
                                     else:
-                                        st.info("Dataset too large for a full heatmap visualization of regional preferences. Showing table instead.")
+                                        st.info("Not enough distinct products or regions for a summary heatmap.")
+                                else:
+                                    st.info("Dataset too large for a full heatmap visualization of regional preferences. Showing table instead.")
 
-                        except Exception as e:
-                            st.error(f"Error during regional preference analysis: {e}")
+                    except Exception as e:
+                        st.error(f"Error during regional preference analysis: {e}")
 
         # Category 5: Financial & Order Metrics (FOM)
         with st.expander("💰 Financial & Order Metrics (FOM)", expanded=False):
             st.info("Analyze key financial and order-related metrics like AOV, discount impact, and fulfillment performance.")
 
             # FOM 1: Average Order Value (AOV) Trend & Drivers
-            with st.expander("FOM 1: Average Order Value (AOV) Trend & Drivers", expanded=False):
-                st.markdown("Analyze Average Order Value (AOV) over time and by different segments (e.g., 'Sales Channel', 'B2B', 'Fulfilment'). Requires 'Order ID', 'Amount', 'Date'.")
+            st.subheader("FOM 1: Average Order Value (AOV) Trend & Drivers")
+            st.markdown("Analyze Average Order Value (AOV) over time and by different segments (e.g., 'Sales Channel', 'B2B', 'Fulfilment'). Requires 'Order ID', 'Amount', 'Date'.")
 
-                all_cols_fom1 = df.columns.tolist()
-                date_cols_fom1 = date_cols
-                numeric_cols_fom1 = get_numeric_columns(df)
-                categorical_cols_fom1 = get_categorical_columns(df)
+            all_cols_fom1 = df.columns.tolist()
+            date_cols_fom1 = date_cols
+            numeric_cols_fom1 = get_numeric_columns(df)
+            categorical_cols_fom1 = get_categorical_columns(df)
 
-                order_id_col_fom1 = st.selectbox("Select Order ID column:", all_cols_fom1, index=all_cols_fom1.index('Order ID') if 'Order ID' in all_cols_fom1 else 0, key="fom1_order_id")
-                amount_col_fom1 = st.selectbox("Select Order Amount column:", numeric_cols_fom1, index=numeric_cols_fom1.index('Amount') if 'Amount' in numeric_cols_fom1 else 0, key="fom1_amount")
-                date_col_fom1 = st.selectbox("Select Date column:", date_cols_fom1 if date_cols_fom1 else all_cols_fom1, index=date_cols_fom1.index('Date') if 'Date' in date_cols_fom1 else 0, key="fom1_date")
-                
-                aggregation_freq_fom1 = st.selectbox("Aggregate AOV trend by:", ["W", "M", "Q"], index=1, format_func=lambda x: {"W":"Weekly", "M":"Monthly", "Q":"Quarterly"}[x], key="fom1_freq")
-                segment_col_fom1 = st.selectbox("Optional: Segment AOV by column:", [None] + categorical_cols_fom1, index=0, key="fom1_segment")
+            order_id_col_fom1 = st.selectbox("Select Order ID column:", all_cols_fom1, index=all_cols_fom1.index('Order ID') if 'Order ID' in all_cols_fom1 else 0, key="fom1_order_id")
+            amount_col_fom1 = st.selectbox("Select Order Amount column:", numeric_cols_fom1, index=numeric_cols_fom1.index('Amount') if 'Amount' in numeric_cols_fom1 else 0, key="fom1_amount")
+            date_col_fom1 = st.selectbox("Select Date column:", date_cols_fom1 if date_cols_fom1 else all_cols_fom1, index=date_cols_fom1.index('Date') if 'Date' in date_cols_fom1 else 0, key="fom1_date")
+            
+            aggregation_freq_fom1 = st.selectbox("Aggregate AOV trend by:", ["W", "M", "Q"], index=1, format_func=lambda x: {"W":"Weekly", "M":"Monthly", "Q":"Quarterly"}[x], key="fom1_freq")
+            segment_col_fom1 = st.selectbox("Optional: Segment AOV by column:", [None] + categorical_cols_fom1, index=0, key="fom1_segment")
 
-                if st.button("💲 Analyze AOV", key="fom1_run"):
-                    if not all([order_id_col_fom1, amount_col_fom1, date_col_fom1]):
-                        st.warning("Please select Order ID, Amount, and Date columns.")
-                    else:
-                        try:
-                            fom1_df = df[[order_id_col_fom1, amount_col_fom1, date_col_fom1]].copy()
-                            # If the data is item-level and Order ID can have multiple items, first sum Amount per Order ID.
-                            # The sample data has Order ID unique per row, so each row is an "order" in this context.
-                            # If Order ID was not unique, we'd do:
-                            # order_amounts = fom1_df.groupby([order_id_col_fom1, date_col_fom1])[amount_col_fom1].sum().reset_index()
-                            # For this dataset, we assume each row is a distinct order item, and Order ID is the transaction.
-                            # If an Order ID can have multiple items, we need to group by Order ID first to get total order amount.
-                            # Let's assume the current 'Amount' is per item, and we need to sum it up per 'Order ID' if 'Order ID' is not unique per transaction.
-                            # Given the dataset structure, 'Order ID' seems to be unique per row (item).
-                            # So, AOV calculation needs to be based on unique orders.
+            if st.button("💲 Analyze AOV", key="fom1_run"):
+                if not all([order_id_col_fom1, amount_col_fom1, date_col_fom1]):
+                    st.warning("Please select Order ID, Amount, and Date columns.")
+                else:
+                    try:
+                        fom1_df = df[[order_id_col_fom1, amount_col_fom1, date_col_fom1]].copy()
+                        # If the data is item-level and Order ID can have multiple items, first sum Amount per Order ID.
+                        # The sample data has Order ID unique per row, so each row is an "order" in this context.
+                        # If Order ID was not unique, we'd do:
+                        # order_amounts = fom1_df.groupby([order_id_col_fom1, date_col_fom1])[amount_col_fom1].sum().reset_index()
+                        # For this dataset, we assume each row is a distinct order item, and Order ID is the transaction.
+                        # If an Order ID can have multiple items, we need to group by Order ID first to get total order amount.
+                        # Let's assume the current 'Amount' is per item, and we need to sum it up per 'Order ID' if 'Order ID' is not unique per transaction.
+                        # Given the dataset structure, 'Order ID' seems to be unique per row (item).
+                        # So, AOV calculation needs to be based on unique orders.
+                        
+                        fom1_df[date_col_fom1] = pd.to_datetime(fom1_df[date_col_fom1], errors='coerce')
+                        fom1_df = fom1_df.dropna(subset=[order_id_col_fom1, amount_col_fom1, date_col_fom1])
+
+                        if fom1_df.empty:
+                            st.warning("No data available for AOV analysis.")
+                        else:
+                            # Calculate AOV: Total Revenue / Number of Unique Orders
+                            # For trend, group by time period
+                            fom1_df['time_period'] = fom1_df[date_col_fom1].dt.to_period(aggregation_freq_fom1)
                             
-                            fom1_df[date_col_fom1] = pd.to_datetime(fom1_df[date_col_fom1], errors='coerce')
-                            fom1_df = fom1_df.dropna(subset=[order_id_col_fom1, amount_col_fom1, date_col_fom1])
-
-                            if fom1_df.empty:
-                                st.warning("No data available for AOV analysis.")
+                            if segment_col_fom1 and segment_col_fom1 in df.columns:
+                                fom1_df[segment_col_fom1] = df[segment_col_fom1] # Add segment column
+                                aov_trend_data = fom1_df.groupby(['time_period', segment_col_fom1]).agg(
+                                    TotalRevenue=(amount_col_fom1, 'sum'),
+                                    UniqueOrders=(order_id_col_fom1, 'nunique')
+                                )
+                                aov_trend_data['AOV'] = aov_trend_data['TotalRevenue'] / aov_trend_data['UniqueOrders']
+                                aov_trend_plot = aov_trend_data['AOV'].unstack()
+                                st.markdown(f"##### AOV Trend by '{segment_col_fom1}' ({aggregation_freq_fom1} Aggregation)") # Changed subheader level
                             else:
-                                # Calculate AOV: Total Revenue / Number of Unique Orders
-                                # For trend, group by time period
-                                fom1_df['time_period'] = fom1_df[date_col_fom1].dt.to_period(aggregation_freq_fom1)
-                                
-                                if segment_col_fom1 and segment_col_fom1 in df.columns:
-                                    fom1_df[segment_col_fom1] = df[segment_col_fom1] # Add segment column
-                                    aov_trend_data = fom1_df.groupby(['time_period', segment_col_fom1]).agg(
-                                        TotalRevenue=(amount_col_fom1, 'sum'),
-                                        UniqueOrders=(order_id_col_fom1, 'nunique')
-                                    )
-                                    aov_trend_data['AOV'] = aov_trend_data['TotalRevenue'] / aov_trend_data['UniqueOrders']
-                                    aov_trend_plot = aov_trend_data['AOV'].unstack()
-                                    st.subheader(f"AOV Trend by '{segment_col_fom1}' ({aggregation_freq_fom1} Aggregation)")
-                                else:
-                                    aov_trend_data = fom1_df.groupby('time_period').agg(
-                                        TotalRevenue=(amount_col_fom1, 'sum'),
-                                        UniqueOrders=(order_id_col_fom1, 'nunique')
-                                    )
-                                    aov_trend_data['AOV'] = aov_trend_data['TotalRevenue'] / aov_trend_data['UniqueOrders']
-                                    aov_trend_plot = aov_trend_data['AOV']
-                                    st.subheader(f"Overall AOV Trend ({aggregation_freq_fom1} Aggregation)")
+                                aov_trend_data = fom1_df.groupby('time_period').agg(
+                                    TotalRevenue=(amount_col_fom1, 'sum'),
+                                    UniqueOrders=(order_id_col_fom1, 'nunique')
+                                )
+                                aov_trend_data['AOV'] = aov_trend_data['TotalRevenue'] / aov_trend_data['UniqueOrders']
+                                aov_trend_plot = aov_trend_data['AOV']
+                                st.markdown(f"##### Overall AOV Trend ({aggregation_freq_fom1} Aggregation)") # Changed subheader level
 
-                                aov_trend_plot = aov_trend_plot.fillna(0)
-                                if not aov_trend_plot.empty:
-                                    st.line_chart(aov_trend_plot)
-                                    st.write("AOV Data (first 20 periods):")
-                                    st.dataframe(aov_trend_data.head(20))
-                                else:
-                                    st.info("No AOV trend data to display.")
-                                
-                                # Overall AOV
-                                overall_aov = fom1_df[amount_col_fom1].sum() / fom1_df[order_id_col_fom1].nunique()
-                                st.metric("Overall Average Order Value (AOV)", f"{overall_aov:,.2f}")
+                            aov_trend_plot = aov_trend_plot.fillna(0)
+                            if not aov_trend_plot.empty:
+                                st.line_chart(aov_trend_plot)
+                                st.write("AOV Data (first 20 periods):")
+                                st.dataframe(aov_trend_data.head(20))
+                            else:
+                                st.info("No AOV trend data to display.")
+                            
+                            # Overall AOV
+                            overall_aov = fom1_df[amount_col_fom1].sum() / fom1_df[order_id_col_fom1].nunique()
+                            st.metric("Overall Average Order Value (AOV)", f"{overall_aov:,.2f}")
 
-                        except Exception as e:
-                            st.error(f"Error during AOV analysis: {e}")
+                    except Exception as e:
+                        st.error(f"Error during AOV analysis: {e}")
+            st.markdown("---")
 
             # FOM 2: Discount Impact Analysis (using promotion-ids)
-            with st.expander("FOM 2: Discount Impact Analysis (using promotion-ids)", expanded=False):
-                st.markdown("Analyze the impact of promotions (indicated by non-empty 'promotion-ids') on sales metrics like Average Item Price, Quantity per Order, and Total Revenue. This is an extension of the basic promotion tool.")
+            st.subheader("FOM 2: Discount Impact Analysis (using promotion-ids)")
+            st.markdown("Analyze the impact of promotions (indicated by non-empty 'promotion-ids') on sales metrics like Average Item Price, Quantity per Order, and Total Revenue. This is an extension of the basic promotion tool.")
 
-                all_cols_fom2 = df.columns.tolist()
-                numeric_cols_fom2 = get_numeric_columns(df)
+            all_cols_fom2 = df.columns.tolist()
+            numeric_cols_fom2 = get_numeric_columns(df)
 
-                promo_id_col_fom2 = st.selectbox("Select Promotion IDs column:", all_cols_fom2, index=all_cols_fom2.index('promotion-ids') if 'promotion-ids' in all_cols_fom2 else 0, key="fom2_promo_id")
-                amount_col_fom2 = st.selectbox("Select Sales Amount column:", numeric_cols_fom2, index=numeric_cols_fom2.index('Amount') if 'Amount' in numeric_cols_fom2 else 0, key="fom2_amount")
-                qty_col_fom2 = st.selectbox("Select Quantity Sold column:", numeric_cols_fom2, index=numeric_cols_fom2.index('Qty') if 'Qty' in numeric_cols_fom2 else 0, key="fom2_qty")
-                order_id_col_fom2 = st.selectbox("Select Order ID column:", all_cols_fom2, index=all_cols_fom2.index('Order ID') if 'Order ID' in all_cols_fom2 else 0, key="fom2_order_id")
+            promo_id_col_fom2 = st.selectbox("Select Promotion IDs column:", all_cols_fom2, index=all_cols_fom2.index('promotion-ids') if 'promotion-ids' in all_cols_fom2 else 0, key="fom2_promo_id")
+            amount_col_fom2 = st.selectbox("Select Sales Amount column:", numeric_cols_fom2, index=numeric_cols_fom2.index('Amount') if 'Amount' in numeric_cols_fom2 else 0, key="fom2_amount")
+            qty_col_fom2 = st.selectbox("Select Quantity Sold column:", numeric_cols_fom2, index=numeric_cols_fom2.index('Qty') if 'Qty' in numeric_cols_fom2 else 0, key="fom2_qty")
+            order_id_col_fom2 = st.selectbox("Select Order ID column:", all_cols_fom2, index=all_cols_fom2.index('Order ID') if 'Order ID' in all_cols_fom2 else 0, key="fom2_order_id")
 
-                if st.button("💸 Analyze Discount Impact", key="fom2_run"):
-                    if not all([promo_id_col_fom2, amount_col_fom2, qty_col_fom2, order_id_col_fom2]):
-                        st.warning("Please select Promotion ID, Amount, Quantity, and Order ID columns.")
-                    else:
-                        try:
-                            fom2_df = df[[promo_id_col_fom2, amount_col_fom2, qty_col_fom2, order_id_col_fom2]].copy().dropna(subset=[amount_col_fom2, qty_col_fom2, order_id_col_fom2])
-                            fom2_df['HasPromotion'] = ~fom2_df[promo_id_col_fom2].isnull() & (fom2_df[promo_id_col_fom2].astype(str).str.strip() != '')
+            if st.button("💸 Analyze Discount Impact", key="fom2_run"):
+                if not all([promo_id_col_fom2, amount_col_fom2, qty_col_fom2, order_id_col_fom2]):
+                    st.warning("Please select Promotion ID, Amount, Quantity, and Order ID columns.")
+                else:
+                    try:
+                        fom2_df = df[[promo_id_col_fom2, amount_col_fom2, qty_col_fom2, order_id_col_fom2]].copy().dropna(subset=[amount_col_fom2, qty_col_fom2, order_id_col_fom2])
+                        fom2_df['HasPromotion'] = ~fom2_df[promo_id_col_fom2].isnull() & (fom2_df[promo_id_col_fom2].astype(str).str.strip() != '')
 
-                            if fom2_df.empty:
-                                st.warning("No data available for discount impact analysis.")
-                            else:
-                                st.subheader("Discount Impact Analysis Results")
-                                
-                                # Item-level analysis
-                                item_level_summary = fom2_df.groupby('HasPromotion').agg(
-                                    TotalRevenue=(amount_col_fom2, 'sum'),
-                                    TotalQuantity=(qty_col_fom2, 'sum'),
-                                    NumberOfItems=(order_id_col_fom2, 'count'), # Count of line items
-                                    AverageItemPrice=(amount_col_fom2, 'mean')
-                                ).rename(index={True: 'With Promotion', False: 'Without Promotion'})
-                                item_level_summary['AverageItemsPerTransactionEstimate'] = item_level_summary['TotalQuantity'] / fom2_df.groupby('HasPromotion')[order_id_col_fom2].nunique()
+                        if fom2_df.empty:
+                            st.warning("No data available for discount impact analysis.")
+                        else:
+                            st.markdown("##### Discount Impact Analysis Results") # Changed subheader level
+                            
+                            # Item-level analysis
+                            item_level_summary = fom2_df.groupby('HasPromotion').agg(
+                                TotalRevenue=(amount_col_fom2, 'sum'),
+                                TotalQuantity=(qty_col_fom2, 'sum'),
+                                NumberOfItems=(order_id_col_fom2, 'count'), # Count of line items
+                                AverageItemPrice=(amount_col_fom2, 'mean')
+                            ).rename(index={True: 'With Promotion', False: 'Without Promotion'})
+                            item_level_summary['AverageItemsPerTransactionEstimate'] = item_level_summary['TotalQuantity'] / fom2_df.groupby('HasPromotion')[order_id_col_fom2].nunique()
 
-                                st.markdown("#### Item-Level Performance (Promoted vs. Non-Promoted Items)")
-                                st.dataframe(item_level_summary)
+                            st.markdown("###### Item-Level Performance (Promoted vs. Non-Promoted Items)") # Changed subheader level
+                            st.dataframe(item_level_summary)
 
-                                fig_fom2_rev, ax_fom2_rev = plt.subplots()
-                                item_level_summary['TotalRevenue'].plot(kind='bar', ax=ax_fom2_rev, title='Total Revenue by Promotion Status')
-                                st.pyplot(fig_fom2_rev)
+                            fig_fom2_rev, ax_fom2_rev = plt.subplots()
+                            item_level_summary['TotalRevenue'].plot(kind='bar', ax=ax_fom2_rev, title='Total Revenue by Promotion Status')
+                            st.pyplot(fig_fom2_rev)
 
-                                # Order-level analysis (AOV for orders with/without any promoted item)
-                                # This requires identifying if an order contains ANY promoted item.
-                                order_promo_status = fom2_df.groupby(order_id_col_fom2)['HasPromotion'].any().reset_index(name='OrderHasPromotion')
-                                order_data_fom2 = fom2_df.groupby(order_id_col_fom2).agg(
-                                    OrderAmount=(amount_col_fom2, 'sum'),
-                                    OrderQuantity=(qty_col_fom2, 'sum')
-                                ).reset_index()
-                                order_data_fom2 = pd.merge(order_data_fom2, order_promo_status, on=order_id_col_fom2)
+                            # Order-level analysis (AOV for orders with/without any promoted item)
+                            # This requires identifying if an order contains ANY promoted item.
+                            order_promo_status = fom2_df.groupby(order_id_col_fom2)['HasPromotion'].any().reset_index(name='OrderHasPromotion')
+                            order_data_fom2 = fom2_df.groupby(order_id_col_fom2).agg(
+                                OrderAmount=(amount_col_fom2, 'sum'),
+                                OrderQuantity=(qty_col_fom2, 'sum')
+                            ).reset_index()
+                            order_data_fom2 = pd.merge(order_data_fom2, order_promo_status, on=order_id_col_fom2)
 
-                                order_level_summary = order_data_fom2.groupby('OrderHasPromotion').agg(
-                                    TotalRevenue=('OrderAmount', 'sum'),
-                                    NumberOfOrders=(order_id_col_fom2, 'count'),
-                                    AverageOrderValue=('OrderAmount', 'mean'),
-                                    AverageQuantityPerOrder=('OrderQuantity', 'mean')
-                                ).rename(index={True: 'Order Contains Promoted Item(s)', False: 'Order Contains No Promoted Items'})
-                                
-                                st.markdown("#### Order-Level Performance (Orders with vs. without Promoted Items)")
-                                st.dataframe(order_level_summary)
+                            order_level_summary = order_data_fom2.groupby('OrderHasPromotion').agg(
+                                TotalRevenue=('OrderAmount', 'sum'),
+                                NumberOfOrders=(order_id_col_fom2, 'count'),
+                                AverageOrderValue=('OrderAmount', 'mean'),
+                                AverageQuantityPerOrder=('OrderQuantity', 'mean')
+                            ).rename(index={True: 'Order Contains Promoted Item(s)', False: 'Order Contains No Promoted Items'})
+                            
+                            st.markdown("###### Order-Level Performance (Orders with vs. without Promoted Items)") # Changed subheader level
+                            st.dataframe(order_level_summary)
 
-                                fig_fom2_aov, ax_fom2_aov = plt.subplots()
-                                order_level_summary['AverageOrderValue'].plot(kind='bar', ax=ax_fom2_aov, title='Average Order Value by Promotion Status in Order')
-                                st.pyplot(fig_fom2_aov)
+                            fig_fom2_aov, ax_fom2_aov = plt.subplots()
+                            order_level_summary['AverageOrderValue'].plot(kind='bar', ax=ax_fom2_aov, title='Average Order Value by Promotion Status in Order')
+                            st.pyplot(fig_fom2_aov)
 
-                        except Exception as e:
-                            st.error(f"Error during discount impact analysis: {e}")
+                    except Exception as e:
+                        st.error(f"Error during discount impact analysis: {e}")
+            st.markdown("---")
 
             # FOM 3: Fulfilment Method Deep Dive
-            with st.expander("FOM 3: Fulfilment Method Deep Dive", expanded=False):
-                st.markdown("Analyze how 'Fulfilment' method (e.g., Amazon, Merchant) impacts sales metrics like average item price, quantity per order, and revenue by category.")
+            st.subheader("FOM 3: Fulfilment Method Deep Dive")
+            st.markdown("Analyze how 'Fulfilment' method (e.g., Amazon, Merchant) impacts sales metrics like average item price, quantity per order, and revenue by category.")
 
-                all_cols_fom3 = df.columns.tolist()
-                numeric_cols_fom3 = get_numeric_columns(df)
-                categorical_cols_fom3 = get_categorical_columns(df)
+            all_cols_fom3 = df.columns.tolist()
+            numeric_cols_fom3 = get_numeric_columns(df)
+            categorical_cols_fom3 = get_categorical_columns(df)
 
-                fulfilment_col_fom3 = st.selectbox("Select Fulfilment column:", all_cols_fom3, index=all_cols_fom3.index('Fulfilment') if 'Fulfilment' in all_cols_fom3 else 0, key="fom3_fulfilment")
-                amount_col_fom3 = st.selectbox("Select Sales Amount column:", numeric_cols_fom3, index=numeric_cols_fom3.index('Amount') if 'Amount' in numeric_cols_fom3 else 0, key="fom3_amount")
-                qty_col_fom3 = st.selectbox("Select Quantity Sold column:", numeric_cols_fom3, index=numeric_cols_fom3.index('Qty') if 'Qty' in numeric_cols_fom3 else 0, key="fom3_qty")
-                order_id_col_fom3 = st.selectbox("Select Order ID column:", all_cols_fom3, index=all_cols_fom3.index('Order ID') if 'Order ID' in all_cols_fom3 else 0, key="fom3_order_id")
-                category_col_fom3 = st.selectbox("Optional: Select Category column for breakdown:", [None] + categorical_cols_fom3, index=([None] + categorical_cols_fom3).index('Category') if 'Category' in categorical_cols_fom3 else 0, key="fom3_category")
+            fulfilment_col_fom3 = st.selectbox("Select Fulfilment column:", all_cols_fom3, index=all_cols_fom3.index('Fulfilment') if 'Fulfilment' in all_cols_fom3 else 0, key="fom3_fulfilment")
+            amount_col_fom3 = st.selectbox("Select Sales Amount column:", numeric_cols_fom3, index=numeric_cols_fom3.index('Amount') if 'Amount' in numeric_cols_fom3 else 0, key="fom3_amount")
+            qty_col_fom3 = st.selectbox("Select Quantity Sold column:", numeric_cols_fom3, index=numeric_cols_fom3.index('Qty') if 'Qty' in numeric_cols_fom3 else 0, key="fom3_qty")
+            order_id_col_fom3 = st.selectbox("Select Order ID column:", all_cols_fom3, index=all_cols_fom3.index('Order ID') if 'Order ID' in all_cols_fom3 else 0, key="fom3_order_id")
+            category_col_fom3 = st.selectbox("Optional: Select Category column for breakdown:", [None] + categorical_cols_fom3, index=([None] + categorical_cols_fom3).index('Category') if 'Category' in categorical_cols_fom3 else 0, key="fom3_category")
 
-                if st.button("📦 Analyze Fulfilment Method", key="fom3_run"):
-                    if not all([fulfilment_col_fom3, amount_col_fom3, qty_col_fom3, order_id_col_fom3]):
-                        st.warning("Please select Fulfilment, Amount, Quantity, and Order ID columns.")
-                    else:
-                        try:
-                            fom3_df = df.copy()
-                            
-                            st.subheader(f"Fulfilment Method Analysis ('{fulfilment_col_fom3}')")
+            if st.button("📦 Analyze Fulfilment Method", key="fom3_run"):
+                if not all([fulfilment_col_fom3, amount_col_fom3, qty_col_fom3, order_id_col_fom3]):
+                    st.warning("Please select Fulfilment, Amount, Quantity, and Order ID columns.")
+                else:
+                    try:
+                        fom3_df = df.copy()
+                        
+                        st.markdown(f"##### Fulfilment Method Analysis ('{fulfilment_col_fom3}')") # Changed subheader level
 
-                            # Overall summary by fulfilment type
-                            overall_summary_fom3 = fom3_df.groupby(fulfilment_col_fom3).agg(
-                                TotalRevenue=(amount_col_fom3, 'sum'),
-                                TotalQuantity=(qty_col_fom3, 'sum'),
-                                NumberOfTransactions=(order_id_col_fom3, 'count'), # Assuming each row is a transaction/item
-                                AverageItemPrice=(amount_col_fom3, 'mean'),
-                                AverageItemQuantity=(qty_col_fom3, 'mean')
-                            ).sort_values(by='TotalRevenue', ascending=False)
-                            
-                            st.markdown("#### Overall Performance by Fulfilment Method")
-                            st.dataframe(overall_summary_fom3)
+                        # Overall summary by fulfilment type
+                        overall_summary_fom3 = fom3_df.groupby(fulfilment_col_fom3).agg(
+                            TotalRevenue=(amount_col_fom3, 'sum'),
+                            TotalQuantity=(qty_col_fom3, 'sum'),
+                            NumberOfTransactions=(order_id_col_fom3, 'count'), # Assuming each row is a transaction/item
+                            AverageItemPrice=(amount_col_fom3, 'mean'),
+                            AverageItemQuantity=(qty_col_fom3, 'mean')
+                        ).sort_values(by='TotalRevenue', ascending=False)
+                        
+                        st.markdown("###### Overall Performance by Fulfilment Method") # Changed subheader level
+                        st.dataframe(overall_summary_fom3)
 
-                            fig_fom3_rev, ax_fom3_rev = plt.subplots()
-                            overall_summary_fom3['TotalRevenue'].plot(kind='pie', autopct='%1.1f%%', ax=ax_fom3_rev, title=f'Revenue Share by {fulfilment_col_fom3}')
-                            st.pyplot(fig_fom3_rev)
+                        fig_fom3_rev, ax_fom3_rev = plt.subplots()
+                        overall_summary_fom3['TotalRevenue'].plot(kind='pie', autopct='%1.1f%%', ax=ax_fom3_rev, title=f'Revenue Share by {fulfilment_col_fom3}')
+                        st.pyplot(fig_fom3_rev)
 
-                            if category_col_fom3:
-                                st.markdown(f"#### Revenue by {fulfilment_col_fom3} and {category_col_fom3}")
-                                fulfilment_category_rev = pd.pivot_table(fom3_df,
-                                                                         values=amount_col_fom3,
-                                                                         index=category_col_fom3,
-                                                                         columns=fulfilment_col_fom3,
-                                                                         aggfunc='sum',
-                                                                         fill_value=0)
-                                if not fulfilment_category_rev.empty:
-                                    st.dataframe(fulfilment_category_rev.head(15)) # Show top categories
-                                    
-                                    # Stacked bar chart for top N categories
-                                    top_n_cat_fom3 = 10
-                                    plot_data_fom3_cat = fulfilment_category_rev.sum(axis=1).nlargest(top_n_cat_fom3).index
-                                    if not plot_data_fom3_cat.empty:
-                                        fig_fom3_cat, ax_fom3_cat = plt.subplots(figsize=(12,7))
-                                        fulfilment_category_rev.loc[plot_data_fom3_cat].plot(kind='bar', stacked=True, ax=ax_fom3_cat)
-                                        ax_fom3_cat.set_title(f'Top {top_n_cat_fom3} Categories: Revenue by {fulfilment_col_fom3}')
-                                        ax_fom3_cat.set_ylabel('Total Revenue')
-                                        plt.xticks(rotation=45, ha="right")
-                                        plt.tight_layout()
-                                        st.pyplot(fig_fom3_cat)
-                                else:
-                                    st.info(f"No data for {fulfilment_col_fom3} vs {category_col_fom3} breakdown.")
-                        except Exception as e:
-                            st.error(f"Error during fulfilment method analysis: {e}")
+                        if category_col_fom3:
+                            st.markdown(f"###### Revenue by {fulfilment_col_fom3} and {category_col_fom3}") # Changed subheader level
+                            fulfilment_category_rev = pd.pivot_table(fom3_df,
+                                                                     values=amount_col_fom3,
+                                                                     index=category_col_fom3,
+                                                                     columns=fulfilment_col_fom3,
+                                                                     aggfunc='sum',
+                                                                     fill_value=0)
+                            if not fulfilment_category_rev.empty:
+                                st.dataframe(fulfilment_category_rev.head(15)) # Show top categories
+                                
+                                # Stacked bar chart for top N categories
+                                top_n_cat_fom3 = 10
+                                plot_data_fom3_cat = fulfilment_category_rev.sum(axis=1).nlargest(top_n_cat_fom3).index
+                                if not plot_data_fom3_cat.empty:
+                                    fig_fom3_cat, ax_fom3_cat = plt.subplots(figsize=(12,7))
+                                    fulfilment_category_rev.loc[plot_data_fom3_cat].plot(kind='bar', stacked=True, ax=ax_fom3_cat)
+                                    ax_fom3_cat.set_title(f'Top {top_n_cat_fom3} Categories: Revenue by {fulfilment_col_fom3}')
+                                    ax_fom3_cat.set_ylabel('Total Revenue')
+                                    plt.xticks(rotation=45, ha="right")
+                                    plt.tight_layout()
+                                    st.pyplot(fig_fom3_cat)
+                            else:
+                                st.info(f"No data for {fulfilment_col_fom3} vs {category_col_fom3} breakdown.")
+                    except Exception as e:
+                        st.error(f"Error during fulfilment method analysis: {e}")
 
         # Category 2: Machine Learning - Supervised (MLS)
         with st.expander("🤖 Machine Learning - Supervised (MLS)"):
