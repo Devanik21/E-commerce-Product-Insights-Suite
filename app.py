@@ -66,7 +66,7 @@ try:
     # --- Sidebar for API Key and AI Model Info ---
     st.sidebar.subheader("✨ AI Configuration")
     api_key = st.sidebar.text_input("Enter your Gemini API Key:", type="password", help="Get your API key from Google AI Studio.")
-    st.sidebar.caption("Using AI Model: Gemini 1.5 Flash (via `gemini-1.5-flash-latest`)")
+    st.sidebar.caption("Using AI Model: Gemini 2.0 Flash (via `gemini-2.0-flash`)")
     st.sidebar.markdown("---")
     st.sidebar.header("🧠 Analysis Modules")
     # Traditional analysis options are now directly within Tab 1
@@ -344,7 +344,7 @@ try:
         else:
             try:
                 genai.configure(api_key=api_key)
-                model = genai.GenerativeModel('gemini-1.5-flash-latest')
+                model = genai.GenerativeModel('gemini-2.0-flash')
 
                 st.subheader("🛍️ Enhanced Product Description Generator")
                 if not df.empty:
