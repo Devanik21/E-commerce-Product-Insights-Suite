@@ -104,53 +104,55 @@ try:
             order_date_col_rfm = st.selectbox("Select Order Date column for RFM:", date_cols_rfm if date_cols_rfm else all_cols, index=date_cols_rfm.index('Date') if 'Date' in date_cols_rfm else (all_cols.index('Date') if 'Date' in all_cols else 0), key="rfm_date")
             total_amount_col_rfm = st.selectbox("Select Total Amount column for RFM:", numeric_cols_rfm if numeric_cols_rfm else all_cols, index=numeric_cols_rfm.index('Amount') if 'Amount' in numeric_cols_rfm else (all_cols.index('Amount') if 'Amount' in all_cols else 0), key="rfm_amount")
 
-            if st.button("Run RFM Analysis", key="run_rfm_button"):
-                if customer_id_col_rfm and order_date_col_rfm and total_amount_col_rfm and \
-                   customer_id_col_rfm in df.columns and order_date_col_rfm in df.columns and \
-                   total_amount_col_rfm in df.columns and not df[order_date_col_rfm].isnull().all():
-                    
-                    rfm_df_copy = df[[customer_id_col_rfm, order_date_col_rfm, total_amount_col_rfm]].copy()
-                    rfm_df_copy[order_date_col_rfm] = pd.to_datetime(rfm_df_copy[order_date_col_rfm], errors='coerce')
-                    rfm_df_copy = rfm_df_copy.dropna(subset=[order_date_col_rfm, total_amount_col_rfm])
+            # Analysis runs automatically if expander is open and columns are valid
+            if customer_id_col_rfm and order_date_col_rfm and total_amount_col_rfm and \
+               customer_id_col_rfm in df.columns and order_date_col_rfm in df.columns and \
+               total_amount_col_rfm in df.columns and not df[order_date_col_rfm].isnull().all():
+                
+                rfm_df_copy = df[[customer_id_col_rfm, order_date_col_rfm, total_amount_col_rfm]].copy()
+                rfm_df_copy[order_date_col_rfm] = pd.to_datetime(rfm_df_copy[order_date_col_rfm], errors='coerce')
+                rfm_df_copy = rfm_df_copy.dropna(subset=[order_date_col_rfm, total_amount_col_rfm])
 
-                    if rfm_df_copy.empty:
-                        st.warning("Not enough valid data for RFM analysis after filtering. Check selected columns and their data types.")
-                    else:
-                        snapshot_date = rfm_df_copy[order_date_col_rfm].max() + pd.Timedelta(days=1)
-                        rfm_agg = rfm_df_copy.groupby(customer_id_col_rfm).agg({
-                            order_date_col_rfm: lambda x: (snapshot_date - x.max()).days,
-                            customer_id_col_rfm: 'count', # Frequency based on selected ID
-                            total_amount_col_rfm: 'sum'
-                        })
-                        rfm_agg.columns = ['Recency', 'Frequency', 'Monetary']
-                        st.write("RFM Aggregated Data (Head):")
-                        st.write(rfm_agg.head())
-
-                        if len(rfm_agg) > 1 : # Need at least 2 samples for scaling and clustering
-                            scaler = StandardScaler()
-                            rfm_scaled = scaler.fit_transform(rfm_agg)
-                            
-                            n_clusters_rfm = min(4, len(rfm_agg)) # Adjust n_clusters if less data
-                            if n_clusters_rfm > 1:
-                                kmeans = KMeans(n_clusters=n_clusters_rfm, random_state=1, n_init='auto' if pd.__version__ >= '1.3' else 10)
-                                rfm_agg['Cluster'] = kmeans.fit_predict(rfm_scaled)
-                                st.write("RFM Cluster Means:")
-                                st.write(rfm_agg.groupby('Cluster').mean())
-                                
-                                if len(rfm_agg) >= n_clusters_rfm : # Ensure enough data for pairplot
-                                    try:
-                                        pair_fig = sns.pairplot(rfm_agg.reset_index(), hue='Cluster', vars=['Recency', 'Frequency', 'Monetary'])
-                                        st.pyplot(pair_fig)
-                                    except Exception as e:
-                                        st.warning(f"Could not generate pairplot for RFM: {e}")
-                                else:
-                                    st.info("Not enough distinct data points to generate a meaningful pairplot after clustering.")
-                            else:
-                                st.warning("Not enough clusters can be formed (less than 2). RFM clustering skipped.")
-                        else:
-                            st.warning("Not enough unique entities for RFM clustering after aggregation.")
+                if rfm_df_copy.empty:
+                    st.warning("Not enough valid data for RFM analysis after filtering. Check selected columns and their data types.")
                 else:
-                    st.warning("RFM analysis requires 'Customer/Entity ID', 'Order Date', and 'Total Amount' columns to be selected and have valid data. Ensure 'Order Date' column is correctly formatted as datetime.")
+                    snapshot_date = rfm_df_copy[order_date_col_rfm].max() + pd.Timedelta(days=1)
+                    rfm_agg = rfm_df_copy.groupby(customer_id_col_rfm).agg({
+                        order_date_col_rfm: lambda x: (snapshot_date - x.max()).days,
+                        customer_id_col_rfm: 'count', # Frequency based on selected ID
+                        total_amount_col_rfm: 'sum'
+                    })
+                    rfm_agg.columns = ['Recency', 'Frequency', 'Monetary']
+                    st.write("RFM Aggregated Data (Head):")
+                    st.write(rfm_agg.head())
+
+                    if len(rfm_agg) > 1 : # Need at least 2 samples for scaling and clustering
+                        scaler = StandardScaler()
+                        rfm_scaled = scaler.fit_transform(rfm_agg)
+                        
+                        n_clusters_rfm = min(4, len(rfm_agg)) # Adjust n_clusters if less data
+                        if n_clusters_rfm > 1:
+                            kmeans = KMeans(n_clusters=n_clusters_rfm, random_state=1, n_init='auto' if pd.__version__ >= '1.3' else 10)
+                            rfm_agg['Cluster'] = kmeans.fit_predict(rfm_scaled)
+                            st.write("RFM Cluster Means:")
+                            st.write(rfm_agg.groupby('Cluster').mean())
+                            
+                            if len(rfm_agg) >= n_clusters_rfm : # Ensure enough data for pairplot
+                                try:
+                                    pair_fig = sns.pairplot(rfm_agg.reset_index(), hue='Cluster', vars=['Recency', 'Frequency', 'Monetary'])
+                                    st.pyplot(pair_fig)
+                                except Exception as e:
+                                    st.warning(f"Could not generate pairplot for RFM: {e}")
+                            else:
+                                st.info("Not enough distinct data points to generate a meaningful pairplot after clustering.")
+                        else:
+                            st.warning("Not enough clusters can be formed (less than 2). RFM clustering skipped.")
+                    else:
+                        st.warning("Not enough unique entities for RFM clustering after aggregation.")
+            elif any(col is None for col in [customer_id_col_rfm, order_date_col_rfm, total_amount_col_rfm]):
+                st.info("Please select all required columns for RFM Analysis.")
+            else: # This case handles when columns are selected but might be invalid (e.g., not in df or all NaNs for date)
+                st.warning("RFM analysis requires valid 'Customer/Entity ID', 'Order Date', and 'Total Amount' columns. Ensure 'Order Date' column is correctly formatted as datetime and has data.")
 
         # Customer Churn Detection
         with st.expander("📉 Customer Churn Detection", expanded=False):
@@ -163,26 +165,28 @@ try:
             customer_id_col_churn = st.selectbox("Select Customer/Entity ID column for Churn:", all_cols_churn, index=all_cols_churn.index('Order ID') if 'Order ID' in all_cols_churn else 0, key="churn_cust_id")
             order_date_col_churn = st.selectbox("Select Order Date column for Churn:", date_cols_churn if date_cols_churn else all_cols_churn, index=date_cols_churn.index('Date') if 'Date' in date_cols_churn else (all_cols_churn.index('Date') if 'Date' in all_cols_churn else 0), key="churn_date")
 
-            if st.button("Run Churn Detection Analysis", key="run_churn_button"):
-                if customer_id_col_churn and order_date_col_churn and \
-                   customer_id_col_churn in df.columns and order_date_col_churn in df.columns and \
-                   not df[order_date_col_churn].isnull().all():
-                    
-                    churn_df_copy = df[[customer_id_col_churn, order_date_col_churn]].copy()
-                    churn_df_copy[order_date_col_churn] = pd.to_datetime(churn_df_copy[order_date_col_churn], errors='coerce')
-                    churn_df_copy = churn_df_copy.dropna(subset=[order_date_col_churn])
+            # Analysis runs automatically if expander is open and columns are valid
+            if customer_id_col_churn and order_date_col_churn and \
+               customer_id_col_churn in df.columns and order_date_col_churn in df.columns and \
+               not df[order_date_col_churn].isnull().all():
+                
+                churn_df_copy = df[[customer_id_col_churn, order_date_col_churn]].copy()
+                churn_df_copy[order_date_col_churn] = pd.to_datetime(churn_df_copy[order_date_col_churn], errors='coerce')
+                churn_df_copy = churn_df_copy.dropna(subset=[order_date_col_churn])
 
-                    if churn_df_copy.empty:
-                        st.warning("Not enough valid data for Churn analysis after filtering.")
-                    else:
-                        recent_orders = churn_df_copy.groupby(customer_id_col_churn)[order_date_col_churn].max()
-                        churn_threshold = st.slider("Days since last order to be considered churned", 30, 365, 90, key="churn_slider")
-                        churned = recent_orders < (churn_df_copy[order_date_col_churn].max() - pd.Timedelta(days=churn_threshold))
-                        churn_summary = churned.value_counts(dropna=False).rename(index={True: 'Churned', False: 'Active', pd.NA: 'Unknown'})
-                        st.write("Churn Summary:")
-                        st.bar_chart(churn_summary)
+                if churn_df_copy.empty:
+                    st.warning("Not enough valid data for Churn analysis after filtering.")
                 else:
-                    st.warning("Churn detection requires 'Customer/Entity ID' and 'Order Date' columns to be selected and have valid data. Ensure 'Order Date' column is correctly formatted as datetime.")
+                    recent_orders = churn_df_copy.groupby(customer_id_col_churn)[order_date_col_churn].max()
+                    churn_threshold = st.slider("Days since last order to be considered churned", 30, 365, 90, key="churn_slider") # Slider remains interactive
+                    churned = recent_orders < (churn_df_copy[order_date_col_churn].max() - pd.Timedelta(days=churn_threshold))
+                    churn_summary = churned.value_counts(dropna=False).rename(index={True: 'Churned', False: 'Active', pd.NA: 'Unknown'})
+                    st.write("Churn Summary:")
+                    st.bar_chart(churn_summary)
+            elif any(col is None for col in [customer_id_col_churn, order_date_col_churn]):
+                st.info("Please select all required columns for Churn Detection.")
+            else:
+                st.warning("Churn detection requires valid 'Customer/Entity ID' and 'Order Date' columns. Ensure 'Order Date' column is correctly formatted as datetime and has data.")
 
         # Sales Forecasting
         with st.expander("📈 Sales Forecasting (Simple Trend)", expanded=False):
@@ -196,38 +200,40 @@ try:
             order_date_col_fc = st.selectbox("Select Order Date column for Forecasting:", date_cols_fc if date_cols_fc else all_cols_fc, index=date_cols_fc.index('Date') if 'Date' in date_cols_fc else (all_cols_fc.index('Date') if 'Date' in all_cols_fc else 0), key="fc_date")
             total_amount_col_fc = st.selectbox("Select Total Amount column for Forecasting:", numeric_cols_fc if numeric_cols_fc else all_cols_fc, index=numeric_cols_fc.index('Amount') if 'Amount' in numeric_cols_fc else (all_cols_fc.index('Amount') if 'Amount' in all_cols_fc else 0), key="fc_amount")
 
-            if st.button("Run Sales Forecast", key="run_forecast_button"):
-                if order_date_col_fc and total_amount_col_fc and \
-                   order_date_col_fc in df.columns and total_amount_col_fc in df.columns and \
-                   not df[order_date_col_fc].isnull().all():
-                    
-                    fc_df_copy = df[[order_date_col_fc, total_amount_col_fc]].copy()
-                    fc_df_copy[order_date_col_fc] = pd.to_datetime(fc_df_copy[order_date_col_fc], errors='coerce')
-                    df_sorted = fc_df_copy.dropna(subset=[order_date_col_fc, total_amount_col_fc]).sort_values(order_date_col_fc)
+            # Analysis runs automatically if expander is open and columns are valid
+            if order_date_col_fc and total_amount_col_fc and \
+               order_date_col_fc in df.columns and total_amount_col_fc in df.columns and \
+               not df[order_date_col_fc].isnull().all():
+                
+                fc_df_copy = df[[order_date_col_fc, total_amount_col_fc]].copy()
+                fc_df_copy[order_date_col_fc] = pd.to_datetime(fc_df_copy[order_date_col_fc], errors='coerce')
+                df_sorted = fc_df_copy.dropna(subset=[order_date_col_fc, total_amount_col_fc]).sort_values(order_date_col_fc)
 
-                    if not df_sorted.empty and len(df_sorted) > 1:
-                        df_grouped = df_sorted.groupby(order_date_col_fc)[total_amount_col_fc].sum().reset_index()
-                        if len(df_grouped) > 1: # Need at least 2 points for linear regression
-                            df_grouped['Days'] = (df_grouped[order_date_col_fc] - df_grouped[order_date_col_fc].min()).dt.days
-                            model = LinearRegression()
-                            model.fit(df_grouped[['Days']], df_grouped[total_amount_col_fc])
-                            future_days_count = st.slider("Number of days to forecast:", 7, 90, 30, key="fc_days_slider")
-                            future_days = np.arange(df_grouped['Days'].max() + 1, df_grouped['Days'].max() + future_days_count + 1).reshape(-1, 1)
-                            future_sales = model.predict(future_days)
-                            future_dates = [df_grouped[order_date_col_fc].max() + pd.Timedelta(days=i) for i in range(1, future_days_count + 1)]
-                            forecast_df = pd.DataFrame({order_date_col_fc: future_dates, "ForecastedSales": future_sales})
-                            
-                            plot_df = pd.concat([
-                                df_grouped[[order_date_col_fc, total_amount_col_fc]].rename(columns={total_amount_col_fc: "ActualSales"}).set_index(order_date_col_fc),
-                                forecast_df.rename(columns={"ForecastedSales": "ForecastedSales"}).set_index(order_date_col_fc)
-                            ])
-                            st.line_chart(plot_df)
-                        else:
-                            st.warning("Not enough unique date points after grouping for sales forecasting.")
+                if not df_sorted.empty and len(df_sorted) > 1:
+                    df_grouped = df_sorted.groupby(order_date_col_fc)[total_amount_col_fc].sum().reset_index()
+                    if len(df_grouped) > 1: # Need at least 2 points for linear regression
+                        df_grouped['Days'] = (df_grouped[order_date_col_fc] - df_grouped[order_date_col_fc].min()).dt.days
+                        model = LinearRegression()
+                        model.fit(df_grouped[['Days']], df_grouped[total_amount_col_fc])
+                        future_days_count = st.slider("Number of days to forecast:", 7, 90, 30, key="fc_days_slider") # Slider remains interactive
+                        future_days = np.arange(df_grouped['Days'].max() + 1, df_grouped['Days'].max() + future_days_count + 1).reshape(-1, 1)
+                        future_sales = model.predict(future_days)
+                        future_dates = [df_grouped[order_date_col_fc].max() + pd.Timedelta(days=i) for i in range(1, future_days_count + 1)]
+                        forecast_df = pd.DataFrame({order_date_col_fc: future_dates, "ForecastedSales": future_sales})
+                        
+                        plot_df = pd.concat([
+                            df_grouped[[order_date_col_fc, total_amount_col_fc]].rename(columns={total_amount_col_fc: "ActualSales"}).set_index(order_date_col_fc),
+                            forecast_df.rename(columns={"ForecastedSales": "ForecastedSales"}).set_index(order_date_col_fc)
+                        ])
+                        st.line_chart(plot_df)
                     else:
-                        st.warning("Not enough valid data for sales forecasting after filtering. Need at least 2 data points.")
+                        st.warning("Not enough unique date points after grouping for sales forecasting.")
                 else:
-                    st.warning("Sales forecasting requires 'Order Date' and 'Total Amount' columns to be selected and have valid data. Ensure 'Order Date' column is correctly formatted as datetime.")
+                    st.warning("Not enough valid data for sales forecasting after filtering. Need at least 2 data points.")
+            elif any(col is None for col in [order_date_col_fc, total_amount_col_fc]):
+                st.info("Please select all required columns for Sales Forecasting.")
+            else:
+                st.warning("Sales forecasting requires valid 'Order Date' and 'Total Amount' columns. Ensure 'Order Date' column is correctly formatted as datetime and has data.")
 
         # Return Analysis
         with st.expander("↩️ Return Analysis", expanded=False):
@@ -238,35 +244,36 @@ try:
             product_id_col_ret = st.selectbox("Select Product ID column for Returns:", all_cols_ret, index=all_cols_ret.index('SKU') if 'SKU' in all_cols_ret else (all_cols_ret.index('ASIN') if 'ASIN' in all_cols_ret else 0), key="ret_pid")
             is_returned_col = st.selectbox("Select Return Indicator column (binary 0/1 or True/False):", [None] + all_cols_ret, index=0, key="ret_isret")
             
-            if st.button("Run Return Analysis", key="run_return_button"):
-                if product_id_col_ret and is_returned_col and is_returned_col in df.columns:
-                    try:
-                        df_copy_ret = df[[product_id_col_ret, is_returned_col]].copy().dropna()
-                        
-                        # Attempt to convert to boolean/int if not already
-                        if df_copy_ret[is_returned_col].dtype == 'object':
-                            # Try common true/false strings
-                            true_vals = ['true', 'yes', '1', 'returned', 'shipped - returned to seller'] # Add more as needed
-                            false_vals = ['false', 'no', '0', 'not returned', 'shipped']
-                            df_copy_ret[is_returned_col] = df_copy_ret[is_returned_col].astype(str).str.lower().map(lambda x: 1 if x in true_vals else (0 if x in false_vals else pd.NA))
-                        
-                        df_copy_ret[is_returned_col] = pd.to_numeric(df_copy_ret[is_returned_col], errors='coerce')
-                        df_copy_ret = df_copy_ret.dropna(subset=[is_returned_col])
+            # Analysis runs automatically if expander is open and columns are valid
+            if product_id_col_ret and is_returned_col and is_returned_col in df.columns:
+                try:
+                    df_copy_ret = df[[product_id_col_ret, is_returned_col]].copy().dropna()
+                    
+                    # Attempt to convert to boolean/int if not already
+                    if df_copy_ret[is_returned_col].dtype == 'object':
+                        true_vals = ['true', 'yes', '1', 'returned', 'shipped - returned to seller'] 
+                        false_vals = ['false', 'no', '0', 'not returned', 'shipped']
+                        df_copy_ret[is_returned_col] = df_copy_ret[is_returned_col].astype(str).str.lower().map(lambda x: 1 if x in true_vals else (0 if x in false_vals else pd.NA))
+                    
+                    df_copy_ret[is_returned_col] = pd.to_numeric(df_copy_ret[is_returned_col], errors='coerce')
+                    df_copy_ret = df_copy_ret.dropna(subset=[is_returned_col])
 
-                        if not df_copy_ret[is_returned_col].isin([0,1]).all():
-                            st.warning(f"Column '{is_returned_col}' must be binary (0/1 or True/False) after processing for return analysis. Please check its values.")
-                        elif df_copy_ret.empty:
-                            st.warning("No valid data for return analysis after processing the selected columns.")
-                        else:
-                            return_rate = df_copy_ret.groupby(product_id_col_ret)[is_returned_col].mean()
-                            st.write("Top 10 Products by Return Rate:")
-                            st.bar_chart(return_rate.sort_values(ascending=False).head(10))
-                    except Exception as e:
-                        st.error(f"Could not process return indicator column '{is_returned_col}': {e}")
-                elif product_id_col_ret and not is_returned_col:
-                     st.warning(f"Please select a 'Return Indicator' column. This column is not present by default in the '{DATASET_FILENAME}'.")
-                else:
-                    st.warning("Please select valid 'Product ID' and 'Return Indicator' columns.")
+                    if not df_copy_ret[is_returned_col].isin([0,1]).all():
+                        st.warning(f"Column '{is_returned_col}' must be binary (0/1 or True/False) after processing for return analysis. Please check its values.")
+                    elif df_copy_ret.empty:
+                        st.warning("No valid data for return analysis after processing the selected columns.")
+                    else:
+                        return_rate = df_copy_ret.groupby(product_id_col_ret)[is_returned_col].mean()
+                        st.write("Top 10 Products by Return Rate:")
+                        st.bar_chart(return_rate.sort_values(ascending=False).head(10))
+                except Exception as e:
+                    st.error(f"Could not process return indicator column '{is_returned_col}': {e}")
+            elif product_id_col_ret and not is_returned_col: # Product ID selected, but return indicator is not
+                 st.info(f"Please select a 'Return Indicator' column. This column is not present by default in the '{DATASET_FILENAME}'.")
+            elif not product_id_col_ret and is_returned_col: # Return indicator selected, but product ID is not
+                st.info("Please select a 'Product ID' column for Return Analysis.")
+            elif not product_id_col_ret and not is_returned_col:
+                st.info("Please select 'Product ID' and 'Return Indicator' columns for Return Analysis.")
 
         # A/B Test Visual
         with st.expander("🧪 A/B Test Summary", expanded=False):
@@ -279,51 +286,54 @@ try:
             group_col_ab = st.selectbox("Select Group column for A/B Test (Categorical):", [None] + categorical_cols_ab, index=0, key="ab_group")
             conversion_col_ab_source = st.selectbox("Select column for Conversion/Outcome:", [None] + all_cols_ab, index=0, key="ab_conv_src")
 
-            if st.button("Run A/B Test Summary", key="run_ab_button"):
-                if group_col_ab and conversion_col_ab_source and group_col_ab in df.columns and conversion_col_ab_source in df.columns:
-                    try:
-                        df_copy_ab = df[[group_col_ab, conversion_col_ab_source]].copy().dropna()
-                        conversion_col_final_name = "conversion_metric"
+            # Analysis runs automatically if expander is open and columns are valid
+            if group_col_ab and conversion_col_ab_source and group_col_ab in df.columns and conversion_col_ab_source in df.columns:
+                try:
+                    df_copy_ab = df[[group_col_ab, conversion_col_ab_source]].copy().dropna()
+                    conversion_col_final_name = "conversion_metric"
+                    valid_conversion_for_ab = False
 
-                        # Process conversion column to be binary
-                        if df_copy_ab[conversion_col_ab_source].dtype == 'bool':
-                            df_copy_ab[conversion_col_final_name] = df_copy_ab[conversion_col_ab_source].astype(int)
-                        elif pd.api.types.is_numeric_dtype(df_copy_ab[conversion_col_ab_source]) and df_copy_ab[conversion_col_ab_source].nunique() == 2 and df_copy_ab[conversion_col_ab_source].isin([0,1]).all():
-                            df_copy_ab[conversion_col_final_name] = df_copy_ab[conversion_col_ab_source]
-                        elif pd.api.types.is_numeric_dtype(df_copy_ab[conversion_col_ab_source]):
-                            st.write(f"Numeric column '{conversion_col_ab_source}' selected for conversion. Please define a threshold to binarize it (values > threshold = 1, else 0).")
-                            num_threshold_ab = st.number_input("Enter threshold:", value=df_copy_ab[conversion_col_ab_source].median(), key="ab_thresh")
-                            df_copy_ab[conversion_col_final_name] = (df_copy_ab[conversion_col_ab_source] > num_threshold_ab).astype(int)
-                        elif df_copy_ab[conversion_col_ab_source].dtype == 'object' or pd.api.types.is_categorical_dtype(df_copy_ab[conversion_col_ab_source]):
-                            st.write(f"Categorical column '{conversion_col_ab_source}' selected for conversion. Please select the 'positive' class to be treated as 1 (conversion).")
-                            positive_class_ab = st.selectbox(f"Select positive class for '{conversion_col_ab_source}':", df_copy_ab[conversion_col_ab_source].unique(), key="ab_pos_class")
-                            if positive_class_ab is not None:
-                                df_copy_ab[conversion_col_final_name] = (df_copy_ab[conversion_col_ab_source] == positive_class_ab).astype(int)
-                            else:
-                                st.warning("Please select a positive class for the A/B test conversion.")
-                                df_copy_ab = None # Invalidate
+                    # Process conversion column to be binary
+                    if df_copy_ab[conversion_col_ab_source].dtype == 'bool':
+                        df_copy_ab[conversion_col_final_name] = df_copy_ab[conversion_col_ab_source].astype(int)
+                        valid_conversion_for_ab = True
+                    elif pd.api.types.is_numeric_dtype(df_copy_ab[conversion_col_ab_source]) and df_copy_ab[conversion_col_ab_source].nunique() == 2 and df_copy_ab[conversion_col_ab_source].isin([0,1]).all():
+                        df_copy_ab[conversion_col_final_name] = df_copy_ab[conversion_col_ab_source]
+                        valid_conversion_for_ab = True
+                    elif pd.api.types.is_numeric_dtype(df_copy_ab[conversion_col_ab_source]):
+                        st.write(f"Numeric column '{conversion_col_ab_source}' selected for conversion. Define a threshold to binarize it (values > threshold = 1, else 0).")
+                        num_threshold_ab = st.number_input("Enter threshold:", value=df_copy_ab[conversion_col_ab_source].median(), key="ab_thresh")
+                        df_copy_ab[conversion_col_final_name] = (df_copy_ab[conversion_col_ab_source] > num_threshold_ab).astype(int)
+                        valid_conversion_for_ab = True
+                    elif df_copy_ab[conversion_col_ab_source].dtype == 'object' or pd.api.types.is_categorical_dtype(df_copy_ab[conversion_col_ab_source]):
+                        st.write(f"Categorical column '{conversion_col_ab_source}' selected for conversion. Select the 'positive' class to be treated as 1 (conversion).")
+                        positive_class_ab = st.selectbox(f"Select positive class for '{conversion_col_ab_source}':", df_copy_ab[conversion_col_ab_source].unique(), key="ab_pos_class")
+                        if positive_class_ab is not None:
+                            df_copy_ab[conversion_col_final_name] = (df_copy_ab[conversion_col_ab_source] == positive_class_ab).astype(int)
+                            valid_conversion_for_ab = True
                         else:
-                            st.warning(f"Column '{conversion_col_ab_source}' is not easily convertible to a binary (0/1) conversion metric. Please choose a boolean, binary numeric, or categorical column.")
-                            df_copy_ab = None # Invalidate
-                        
-                        if df_copy_ab is not None and conversion_col_final_name in df_copy_ab.columns:
-                            if df_copy_ab[group_col_ab].nunique() < 2:
-                                st.warning(f"The selected Group column '{group_col_ab}' has fewer than 2 unique groups. A/B testing requires at least two groups.")
-                            else:
-                                st.write(f"A/B Test Summary (Group: {group_col_ab}, Conversion: {conversion_col_final_name} from {conversion_col_ab_source})")
-                                ab_summary = df_copy_ab.groupby(group_col_ab)[conversion_col_final_name].agg(['count', 'mean'])
-                                ab_summary.columns = ['Total Count', 'Conversion Rate']
-                                st.write(ab_summary)
-                                
-                                fig, ax = plt.subplots()
-                                sns.barplot(data=df_copy_ab, x=group_col_ab, y=conversion_col_final_name, ax=ax, errorbar=None) # errorbar=None for newer seaborn
-                                ax.set_ylabel(f"Mean Conversion ({conversion_col_final_name})")
-                                ax.set_title(f"Conversion Rate by {group_col_ab}")
-                                st.pyplot(fig)
-                    except Exception as e:
-                        st.error(f"Error during A/B Test summary: {e}")
-                elif group_col_ab or conversion_col_ab_source:
-                    st.warning("Please select both a 'Group' column and a 'Conversion/Outcome' column for A/B Test summary.")
+                            st.warning("Please select a positive class for the A/B test conversion for the analysis to proceed.")
+                    else:
+                        st.warning(f"Column '{conversion_col_ab_source}' is not easily convertible to a binary (0/1) conversion metric. Please choose a boolean, binary numeric, or categorical column with clear classes.")
+                    
+                    if valid_conversion_for_ab and conversion_col_final_name in df_copy_ab.columns:
+                        if df_copy_ab[group_col_ab].nunique() < 2:
+                            st.warning(f"The selected Group column '{group_col_ab}' has fewer than 2 unique groups. A/B testing requires at least two groups.")
+                        else:
+                            st.write(f"A/B Test Summary (Group: {group_col_ab}, Conversion: {conversion_col_final_name} from {conversion_col_ab_source})")
+                            ab_summary = df_copy_ab.groupby(group_col_ab)[conversion_col_final_name].agg(['count', 'mean'])
+                            ab_summary.columns = ['Total Count', 'Conversion Rate']
+                            st.write(ab_summary)
+                            
+                            fig, ax = plt.subplots()
+                            sns.barplot(data=df_copy_ab, x=group_col_ab, y=conversion_col_final_name, ax=ax, errorbar=None) 
+                            ax.set_ylabel(f"Mean Conversion ({conversion_col_final_name})")
+                            ax.set_title(f"Conversion Rate by {group_col_ab}")
+                            st.pyplot(fig)
+                except Exception as e:
+                    st.error(f"Error during A/B Test summary: {e}")
+            elif not group_col_ab or not conversion_col_ab_source:
+                st.info("Please select both a 'Group' column and a 'Conversion/Outcome' column for A/B Test summary.")
 
     with tab2:
         st.header("🤖 AI Powered Insights")
