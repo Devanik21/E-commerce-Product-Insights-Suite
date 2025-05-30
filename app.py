@@ -70,12 +70,21 @@ try:
     st.sidebar.markdown("---")
     st.sidebar.header("🧠 Analysis Modules")
     
-    with st.sidebar.expander("Traditional Analysis Options", expanded=True):
-        show_rfm = st.checkbox("🧩 RFM Segmentation", key="rfm_cb")
-        show_churn = st.checkbox("📉 Customer Churn Detection", key="churn_cb")
-        show_forecast = st.checkbox("📈 Sales Forecasting", key="forecast_cb")
-        show_return = st.checkbox("↩️ Return Analysis", key="return_cb")
-        show_ab_summary = st.checkbox("🧪 A/B Test Summary", key="ab_cb")
+    with st.sidebar.expander("Traditional Analysis Options", expanded=True): # Main expander for this section
+        with st.sidebar.expander("🧩 RFM Segmentation", expanded=False):
+            show_rfm = st.checkbox("Enable RFM Analysis", key="rfm_cb", value=False)
+        
+        with st.sidebar.expander("📉 Customer Churn Detection", expanded=False):
+            show_churn = st.checkbox("Enable Churn Detection", key="churn_cb", value=False)
+        
+        with st.sidebar.expander("📈 Sales Forecasting", expanded=False):
+            show_forecast = st.checkbox("Enable Sales Forecasting", key="forecast_cb", value=False)
+            
+        with st.sidebar.expander("↩️ Return Analysis", expanded=False):
+            show_return = st.checkbox("Enable Return Analysis", key="return_cb", value=False)
+            
+        with st.sidebar.expander("🧪 A/B Test Summary", expanded=False):
+            show_ab_summary = st.checkbox("Enable A/B Test Summary", key="ab_cb", value=False)
 
 
     # --- Helper functions for column selection (can be used across tabs) ---
