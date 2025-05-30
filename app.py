@@ -796,19 +796,10 @@ try:
         
         # Category 2: Machine Learning - Supervised (MLS)
         with st.expander("🤖 Machine Learning - Supervised (MLS)"):
-                rfm.columns = ['Recency', 'Frequency', 'Monetary']
-                st.write(rfm.head())
-
-                scaler = StandardScaler()
-                rfm_scaled = scaler.fit_transform(rfm)
-                kmeans = KMeans(n_clusters=4, random_state=1, n_init='auto')
-                rfm['Cluster'] = kmeans.fit_predict(rfm_scaled)
-                st.write(rfm.groupby('Cluster').mean())
-                fig, ax = plt.subplots()
-                sns.pairplot(rfm.reset_index(), hue='Cluster', ax=ax)
-                st.pyplot(fig)
-            else:
-                st.warning("RFM analysis requires 'CustomerID', 'OrderDate', and 'TotalAmount' columns with valid data.")
+            # Content for Supervised Machine Learning models will go here.
+            # The RFM analysis code previously here was a duplicate from Tab 1
+            # and caused an IndentationError. It has been removed.
+            pass # Placeholder for actual MLS content
 
         # Customer Churn Detection
         if st.sidebar.checkbox("📉 Customer Churn Detection", key="churn_cb"):
