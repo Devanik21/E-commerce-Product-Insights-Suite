@@ -335,6 +335,502 @@ try:
             elif not group_col_ab or not conversion_col_ab_source:
                 st.info("Please select both a 'Group' column and a 'Conversion/Outcome' column for A/B Test summary.")
 
+        # Tool 1: Detailed Product Performance Analyzer
+        with st.expander("📊 Detailed Product Performance Analyzer", expanded=False):
+            st.info("Analyze product performance by revenue, quantity sold, and trends. Select relevant columns from your dataset.")
+
+            all_cols_ppa = df.columns.tolist()
+            numeric_cols_ppa = get_numeric_columns(df)
+            date_cols_ppa = date_cols # Global date_cols
+
+            st.markdown("#### Column Selection")
+            col1_ppa, col2_ppa = st.columns(2)
+            with col1_ppa:
+                product_id_col_ppa = st.selectbox("Select Product ID column (e.g., SKU, ASIN):", all_cols_ppa, index=all_cols_ppa.index('SKU') if 'SKU' in all_cols_ppa else 0, key="ppa_pid")
+                category_col_ppa = st.selectbox("Select Product Category column:", [None] + all_cols_ppa, index=([None] + all_cols_ppa).index('Category') if 'Category' in all_cols_ppa else 0, key="ppa_cat")
+                date_col_ppa = st.selectbox("Select Date column:", date_cols_ppa if date_cols_ppa else all_cols_ppa, index=date_cols_ppa.index('Date') if 'Date' in date_cols_ppa else (all_cols_ppa.index('Date') if 'Date' in all_cols_ppa else 0), key="ppa_date")
+            with col2_ppa:
+                amount_col_ppa = st.selectbox("Select Sales Amount column:", numeric_cols_ppa if numeric_cols_ppa else all_cols_ppa, index=numeric_cols_ppa.index('Amount') if 'Amount' in numeric_cols_ppa else (all_cols_ppa.index('Amount') if 'Amount' in all_cols_ppa else 0), key="ppa_amount")
+                qty_col_ppa = st.selectbox("Select Quantity Sold column:", numeric_cols_ppa if numeric_cols_ppa else all_cols_ppa, index=numeric_cols_ppa.index('Qty') if 'Qty' in numeric_cols_ppa else 0, key="ppa_qty")
+
+            st.markdown("#### Filters & Options")
+            top_n_ppa = st.slider("Select Top N products to display:", 5, 20, 10, key="ppa_top_n")
+            
+            # Date Range Filter
+            min_date_ppa = df[date_col_ppa].min() if date_col_ppa and date_col_ppa in df.columns and not df[date_col_ppa].isnull().all() else datetime.now().date() - pd.Timedelta(days=365)
+            max_date_ppa = df[date_col_ppa].max() if date_col_ppa and date_col_ppa in df.columns and not df[date_col_ppa].isnull().all() else datetime.now().date()
+            
+            # Ensure min_date_ppa and max_date_ppa are valid datetime objects for date_input
+            if isinstance(min_date_ppa, pd.Timestamp): min_date_ppa = min_date_ppa.date()
+            if isinstance(max_date_ppa, pd.Timestamp): max_date_ppa = max_date_ppa.date()
+
+            start_date_ppa = st.date_input("Start date for PPA:", min_date_ppa, min_value=min_date_ppa, max_value=max_date_ppa, key="ppa_start_date")
+            end_date_ppa = st.date_input("End date for PPA:", max_date_ppa, min_value=min_date_ppa, max_value=max_date_ppa, key="ppa_end_date")
+
+            if start_date_ppa > end_date_ppa:
+                st.warning("Start date cannot be after end date for Product Performance Analysis.")
+
+            if st.button("🚀 Run Product Performance Analysis", key="ppa_run"):
+                if not all([product_id_col_ppa, date_col_ppa, amount_col_ppa, qty_col_ppa]):
+                    st.warning("Please select all required columns (Product ID, Date, Amount, Quantity).")
+                elif start_date_ppa > end_date_ppa:
+                    st.warning("Correct the date range before running analysis.")
+                else:
+                    try:
+                        ppa_df = df.copy()
+                        # Ensure date column is datetime
+                        ppa_df[date_col_ppa] = pd.to_datetime(ppa_df[date_col_ppa], errors='coerce')
+                        ppa_df = ppa_df.dropna(subset=[date_col_ppa, amount_col_ppa, qty_col_ppa, product_id_col_ppa])
+
+                        # Apply date filter
+                        ppa_df = ppa_df[(ppa_df[date_col_ppa] >= pd.to_datetime(start_date_ppa)) & (ppa_df[date_col_ppa] <= pd.to_datetime(end_date_ppa))]
+
+                        if ppa_df.empty:
+                            st.warning("No data available for the selected criteria in Product Performance Analysis.")
+                        else:
+                            st.subheader("Product Performance Results")
+
+                            # 1. Top N Products by Revenue
+                            top_products_revenue = ppa_df.groupby(product_id_col_ppa)[amount_col_ppa].sum().nlargest(top_n_ppa)
+                            st.markdown(f"#### Top {top_n_ppa} Products by Revenue")
+                            if not top_products_revenue.empty:
+                                st.bar_chart(top_products_revenue)
+                                st.dataframe(top_products_revenue.reset_index())
+                            else:
+                                st.info("No revenue data for top products.")
+
+                            # 2. Top N Products by Quantity Sold
+                            top_products_qty = ppa_df.groupby(product_id_col_ppa)[qty_col_ppa].sum().nlargest(top_n_ppa)
+                            st.markdown(f"#### Top {top_n_ppa} Products by Quantity Sold")
+                            if not top_products_qty.empty:
+                                st.bar_chart(top_products_qty)
+                                st.dataframe(top_products_qty.reset_index())
+                            else:
+                                st.info("No quantity data for top products.")
+
+                            # 3. Sales Trend for a Selected Product
+                            st.markdown("#### Sales Trend for a Specific Product")
+                            product_options_ppa = ppa_df[product_id_col_ppa].unique().tolist()
+                            if product_options_ppa:
+                                selected_product_trend_ppa = st.selectbox("Select a product to see its sales trend:", product_options_ppa, index=0, key="ppa_trend_product")
+                                if selected_product_trend_ppa:
+                                    product_trend_df = ppa_df[ppa_df[product_id_col_ppa] == selected_product_trend_ppa].groupby(pd.Grouper(key=date_col_ppa, freq='M')).agg(
+                                        TotalRevenue=(amount_col_ppa, 'sum'),
+                                        TotalQuantity=(qty_col_ppa, 'sum')
+                                    ).reset_index()
+                                    if not product_trend_df.empty:
+                                        st.line_chart(product_trend_df.set_index(date_col_ppa)[['TotalRevenue', 'TotalQuantity']])
+                                    else:
+                                        st.info(f"No sales trend data for product '{selected_product_trend_ppa}'.")
+                            else:
+                                st.info("No products available to select for trend analysis.")
+
+                            # 4. Revenue Distribution by Category (if category column is selected)
+                            if category_col_ppa and category_col_ppa in ppa_df.columns:
+                                st.markdown(f"#### Revenue Distribution by {category_col_ppa}")
+                                category_revenue = ppa_df.groupby(category_col_ppa)[amount_col_ppa].sum().sort_values(ascending=False)
+                                if not category_revenue.empty:
+                                    fig_cat_rev, ax_cat_rev = plt.subplots()
+                                    category_revenue.head(10).plot(kind='bar', ax=ax_cat_rev) # Top 10 categories
+                                    ax_cat_rev.set_ylabel("Total Revenue")
+                                    ax_cat_rev.set_title(f"Top 10 {category_col_ppa} by Revenue")
+                                    plt.xticks(rotation=45, ha="right")
+                                    plt.tight_layout()
+                                    st.pyplot(fig_cat_rev)
+                                    st.dataframe(category_revenue.reset_index().head(20)) # Show more in table
+                                else:
+                                    st.info(f"No revenue data for category '{category_col_ppa}'.")
+
+                            # 5. Average Selling Price (ASP) Analysis
+                            st.markdown("#### Average Selling Price (ASP) per Product")
+                            ppa_df['ASP'] = ppa_df[amount_col_ppa] / ppa_df[qty_col_ppa].replace(0, np.nan) # Avoid division by zero
+                            asp_analysis = ppa_df.groupby(product_id_col_ppa)['ASP'].mean().nlargest(top_n_ppa)
+                            if not asp_analysis.empty:
+                                st.write(f"Top {top_n_ppa} products by Average Selling Price (mean over transactions):")
+                                st.dataframe(asp_analysis.reset_index())
+                            else:
+                                st.info("Could not calculate ASP or no data available.")
+
+                    except Exception as e:
+                        st.error(f"An error occurred during Product Performance Analysis: {e}")
+
+        # Tool 2: Geographic Sales Insights
+        with st.expander("🌍 Geographic Sales Insights", expanded=False):
+            st.info("Analyze sales performance across different geographic regions. Select relevant location and sales columns.")
+
+            all_cols_geo = df.columns.tolist()
+            numeric_cols_geo = get_numeric_columns(df)
+            date_cols_geo = date_cols
+
+            st.markdown("#### Column Selection")
+            col1_geo, col2_geo = st.columns(2)
+            with col1_geo:
+                date_col_geo = st.selectbox("Select Date column:", date_cols_geo if date_cols_geo else all_cols_geo, index=date_cols_geo.index('Date') if 'Date' in date_cols_geo else (all_cols_geo.index('Date') if 'Date' in all_cols_geo else 0), key="geo_date")
+                amount_col_geo = st.selectbox("Select Sales Amount column:", numeric_cols_geo if numeric_cols_geo else all_cols_geo, index=numeric_cols_geo.index('Amount') if 'Amount' in numeric_cols_geo else (all_cols_geo.index('Amount') if 'Amount' in all_cols_geo else 0), key="geo_amount")
+                order_id_col_geo = st.selectbox("Select Order ID column (for order counts):", all_cols_geo, index=all_cols_geo.index('Order ID') if 'Order ID' in all_cols_geo else 0, key="geo_order_id")
+            with col2_geo:
+                state_col_geo = st.selectbox("Select State column:", [None] + all_cols_geo, index=([None] + all_cols_geo).index('ship-state') if 'ship-state' in all_cols_geo else 0, key="geo_state")
+                city_col_geo = st.selectbox("Select City column:", [None] + all_cols_geo, index=([None] + all_cols_geo).index('ship-city') if 'ship-city' in all_cols_geo else 0, key="geo_city")
+                country_col_geo = st.selectbox("Select Country column:", [None] + all_cols_geo, index=([None] + all_cols_geo).index('ship-country') if 'ship-country' in all_cols_geo else 0, key="geo_country")
+
+            st.markdown("#### Filters & Options")
+            top_n_geo = st.slider("Select Top N locations to display:", 5, 20, 10, key="geo_top_n")
+            
+            min_date_geo = df[date_col_geo].min() if date_col_geo and date_col_geo in df.columns and not df[date_col_geo].isnull().all() else datetime.now().date() - pd.Timedelta(days=365)
+            max_date_geo = df[date_col_geo].max() if date_col_geo and date_col_geo in df.columns and not df[date_col_geo].isnull().all() else datetime.now().date()
+            if isinstance(min_date_geo, pd.Timestamp): min_date_geo = min_date_geo.date()
+            if isinstance(max_date_geo, pd.Timestamp): max_date_geo = max_date_geo.date()
+
+            start_date_geo = st.date_input("Start date for Geo Analysis:", min_date_geo, min_value=min_date_geo, max_value=max_date_geo, key="geo_start_date")
+            end_date_geo = st.date_input("End date for Geo Analysis:", max_date_geo, min_value=min_date_geo, max_value=max_date_geo, key="geo_end_date")
+
+            if start_date_geo > end_date_geo:
+                st.warning("Start date cannot be after end date for Geographic Sales Analysis.")
+
+            if st.button("🗺️ Run Geographic Sales Analysis", key="geo_run"):
+                if not all([date_col_geo, amount_col_geo, order_id_col_geo]):
+                    st.warning("Please select Date, Amount, and Order ID columns.")
+                elif start_date_geo > end_date_geo:
+                    st.warning("Correct the date range before running analysis.")
+                elif not any([state_col_geo, city_col_geo, country_col_geo]):
+                    st.warning("Please select at least one geographic column (State, City, or Country).")
+                else:
+                    try:
+                        geo_df = df.copy()
+                        geo_df[date_col_geo] = pd.to_datetime(geo_df[date_col_geo], errors='coerce')
+                        geo_df = geo_df.dropna(subset=[date_col_geo, amount_col_geo, order_id_col_geo])
+                        geo_df = geo_df[(geo_df[date_col_geo] >= pd.to_datetime(start_date_geo)) & (geo_df[date_col_geo] <= pd.to_datetime(end_date_geo))]
+
+                        if geo_df.empty:
+                            st.warning("No data available for the selected criteria in Geographic Sales Analysis.")
+                        else:
+                            st.subheader("Geographic Sales Results")
+
+                            if country_col_geo and country_col_geo in geo_df.columns:
+                                st.markdown(f"#### Sales by {country_col_geo}")
+                                country_sales = geo_df.groupby(country_col_geo).agg(
+                                    TotalRevenue=(amount_col_geo, 'sum'),
+                                    TotalOrders=(order_id_col_geo, 'nunique')
+                                ).nlargest(top_n_geo, 'TotalRevenue')
+                                if not country_sales.empty:
+                                    st.bar_chart(country_sales['TotalRevenue'])
+                                    st.dataframe(country_sales)
+                                else:
+                                    st.info(f"No sales data by {country_col_geo}.")
+
+                            if state_col_geo and state_col_geo in geo_df.columns:
+                                st.markdown(f"#### Top {top_n_geo} {state_col_geo} by Revenue & Orders")
+                                state_sales = geo_df.groupby(state_col_geo).agg(
+                                    TotalRevenue=(amount_col_geo, 'sum'),
+                                    TotalOrders=(order_id_col_geo, 'nunique')
+                                ).nlargest(top_n_geo, 'TotalRevenue')
+                                if not state_sales.empty:
+                                    st.bar_chart(state_sales['TotalRevenue'])
+                                    st.dataframe(state_sales)
+                                else:
+                                    st.info(f"No sales data by {state_col_geo}.")
+
+                            if city_col_geo and city_col_geo in geo_df.columns:
+                                st.markdown(f"#### Top {top_n_geo} {city_col_geo} by Revenue & Orders")
+                                # Optional: Filter cities by a selected state
+                                if state_col_geo and state_col_geo in geo_df.columns:
+                                    available_states_geo = geo_df[state_col_geo].dropna().unique().tolist()
+                                    selected_state_filter_geo = st.selectbox(f"Filter cities by {state_col_geo} (optional):", [None] + available_states_geo, key="geo_city_state_filter")
+                                    if selected_state_filter_geo:
+                                        city_df_filtered = geo_df[geo_df[state_col_geo] == selected_state_filter_geo]
+                                    else:
+                                        city_df_filtered = geo_df
+                                else:
+                                    city_df_filtered = geo_df
+                                
+                                city_sales = city_df_filtered.groupby(city_col_geo).agg(
+                                    TotalRevenue=(amount_col_geo, 'sum'),
+                                    TotalOrders=(order_id_col_geo, 'nunique')
+                                ).nlargest(top_n_geo, 'TotalRevenue')
+                                if not city_sales.empty:
+                                    st.bar_chart(city_sales['TotalRevenue'])
+                                    st.dataframe(city_sales)
+                                else:
+                                    st.info(f"No sales data by {city_col_geo} for the current selection.")
+                    except Exception as e:
+                        st.error(f"An error occurred during Geographic Sales Analysis: {e}")
+
+        # Tool 3: Sales Channel & Fulfilment Analysis
+        with st.expander("🚚 Sales Channel & Fulfilment Analysis", expanded=False):
+            st.info("Compare performance across different sales channels and fulfilment methods.")
+
+            all_cols_scf = df.columns.tolist()
+            numeric_cols_scf = get_numeric_columns(df)
+            date_cols_scf = date_cols
+
+            st.markdown("#### Column Selection")
+            col1_scf, col2_scf = st.columns(2)
+            with col1_scf:
+                date_col_scf = st.selectbox("Select Date column:", date_cols_scf if date_cols_scf else all_cols_scf, index=date_cols_scf.index('Date') if 'Date' in date_cols_scf else (all_cols_scf.index('Date') if 'Date' in all_cols_scf else 0), key="scf_date")
+                amount_col_scf = st.selectbox("Select Sales Amount column:", numeric_cols_scf if numeric_cols_scf else all_cols_scf, index=numeric_cols_scf.index('Amount') if 'Amount' in numeric_cols_scf else (all_cols_scf.index('Amount') if 'Amount' in all_cols_scf else 0), key="scf_amount")
+            with col2_scf:
+                order_id_col_scf = st.selectbox("Select Order ID column:", all_cols_scf, index=all_cols_scf.index('Order ID') if 'Order ID' in all_cols_scf else 0, key="scf_order_id")
+                sales_channel_col_scf = st.selectbox("Select Sales Channel column:", [None] + all_cols_scf, index=([None] + all_cols_scf).index('Sales Channel') if 'Sales Channel' in all_cols_scf else 0, key="scf_sales_channel")
+                fulfilment_col_scf = st.selectbox("Select Fulfilment column:", [None] + all_cols_scf, index=([None] + all_cols_scf).index('Fulfilment') if 'Fulfilment' in all_cols_scf else 0, key="scf_fulfilment")
+
+            st.markdown("#### Filters")
+            min_date_scf = df[date_col_scf].min() if date_col_scf and date_col_scf in df.columns and not df[date_col_scf].isnull().all() else datetime.now().date() - pd.Timedelta(days=365)
+            max_date_scf = df[date_col_scf].max() if date_col_scf and date_col_scf in df.columns and not df[date_col_scf].isnull().all() else datetime.now().date()
+            if isinstance(min_date_scf, pd.Timestamp): min_date_scf = min_date_scf.date()
+            if isinstance(max_date_scf, pd.Timestamp): max_date_scf = max_date_scf.date()
+
+            start_date_scf = st.date_input("Start date for SCF Analysis:", min_date_scf, min_value=min_date_scf, max_value=max_date_scf, key="scf_start_date")
+            end_date_scf = st.date_input("End date for SCF Analysis:", max_date_scf, min_value=min_date_scf, max_value=max_date_scf, key="scf_end_date")
+
+            if start_date_scf > end_date_scf:
+                st.warning("Start date cannot be after end date for Sales Channel & Fulfilment Analysis.")
+
+            if st.button("📊 Run Sales Channel & Fulfilment Analysis", key="scf_run"):
+                if not all([date_col_scf, amount_col_scf, order_id_col_scf]):
+                    st.warning("Please select Date, Amount, and Order ID columns.")
+                elif start_date_scf > end_date_scf:
+                    st.warning("Correct the date range before running analysis.")
+                elif not (sales_channel_col_scf or fulfilment_col_scf):
+                    st.warning("Please select at least a Sales Channel or Fulfilment column.")
+                else:
+                    try:
+                        scf_df = df.copy()
+                        scf_df[date_col_scf] = pd.to_datetime(scf_df[date_col_scf], errors='coerce')
+                        scf_df = scf_df.dropna(subset=[date_col_scf, amount_col_scf, order_id_col_scf])
+                        scf_df = scf_df[(scf_df[date_col_scf] >= pd.to_datetime(start_date_scf)) & (scf_df[date_col_scf] <= pd.to_datetime(end_date_scf))]
+
+                        if scf_df.empty:
+                            st.warning("No data available for the selected criteria in Sales Channel & Fulfilment Analysis.")
+                        else:
+                            st.subheader("Sales Channel & Fulfilment Results")
+
+                            if sales_channel_col_scf and sales_channel_col_scf in scf_df.columns:
+                                st.markdown(f"#### Performance by {sales_channel_col_scf}")
+                                sc_perf = scf_df.groupby(sales_channel_col_scf).agg(
+                                    TotalRevenue=(amount_col_scf, 'sum'),
+                                    TotalOrders=(order_id_col_scf, 'nunique'),
+                                    AverageOrderValue=(amount_col_scf, lambda x: x.sum() / scf_df.loc[x.index, order_id_col_scf].nunique() if scf_df.loc[x.index, order_id_col_scf].nunique() > 0 else 0)
+                                ).sort_values(by="TotalRevenue", ascending=False)
+                                if not sc_perf.empty:
+                                    st.dataframe(sc_perf)
+                                    st.bar_chart(sc_perf[['TotalRevenue', 'TotalOrders']])
+                                else:
+                                    st.info(f"No data for {sales_channel_col_scf}.")
+
+                            if fulfilment_col_scf and fulfilment_col_scf in scf_df.columns:
+                                st.markdown(f"#### Performance by {fulfilment_col_scf}")
+                                ff_perf = scf_df.groupby(fulfilment_col_scf).agg(
+                                    TotalRevenue=(amount_col_scf, 'sum'),
+                                    TotalOrders=(order_id_col_scf, 'nunique'),
+                                    AverageOrderValue=(amount_col_scf, lambda x: x.sum() / scf_df.loc[x.index, order_id_col_scf].nunique() if scf_df.loc[x.index, order_id_col_scf].nunique() > 0 else 0)
+                                ).sort_values(by="TotalRevenue", ascending=False)
+                                if not ff_perf.empty:
+                                    st.dataframe(ff_perf)
+                                    st.bar_chart(ff_perf[['TotalRevenue', 'TotalOrders']])
+                                else:
+                                    st.info(f"No data for {fulfilment_col_scf}.")
+
+                            if sales_channel_col_scf and sales_channel_col_scf in scf_df.columns and fulfilment_col_scf and fulfilment_col_scf in scf_df.columns:
+                                st.markdown(f"#### Revenue: {sales_channel_col_scf} vs. {fulfilment_col_scf}")
+                                cross_tab_rev = pd.crosstab(index=scf_df[sales_channel_col_scf], columns=scf_df[fulfilment_col_scf], values=scf_df[amount_col_scf], aggfunc='sum').fillna(0)
+                                if not cross_tab_rev.empty:
+                                    st.dataframe(cross_tab_rev)
+                                    fig_ct_rev, ax_ct_rev = plt.subplots()
+                                    sns.heatmap(cross_tab_rev, annot=True, fmt=".0f", cmap="viridis", ax=ax_ct_rev)
+                                    ax_ct_rev.set_title(f"Revenue by {sales_channel_col_scf} and {fulfilment_col_scf}")
+                                    st.pyplot(fig_ct_rev)
+                                else:
+                                    st.info("No data for cross-tabulation.")
+                    except Exception as e:
+                        st.error(f"An error occurred during Sales Channel & Fulfilment Analysis: {e}")
+
+        # Tool 4: Order Characteristics Analysis
+        with st.expander("📦 Order Characteristics Analysis", expanded=False):
+            st.info("Analyze characteristics of orders, such as size, value, and B2B status.")
+
+            all_cols_oca = df.columns.tolist()
+            numeric_cols_oca = get_numeric_columns(df)
+            date_cols_oca = date_cols
+
+            st.markdown("#### Column Selection")
+            col1_oca, col2_oca = st.columns(2)
+            with col1_oca:
+                date_col_oca = st.selectbox("Select Date column:", date_cols_oca if date_cols_oca else all_cols_oca, index=date_cols_oca.index('Date') if 'Date' in date_cols_oca else (all_cols_oca.index('Date') if 'Date' in all_cols_oca else 0), key="oca_date")
+                amount_col_oca = st.selectbox("Select Order Amount column:", numeric_cols_oca if numeric_cols_oca else all_cols_oca, index=numeric_cols_oca.index('Amount') if 'Amount' in numeric_cols_oca else (all_cols_oca.index('Amount') if 'Amount' in all_cols_oca else 0), key="oca_amount")
+                qty_col_oca = st.selectbox("Select Order Quantity column:", numeric_cols_oca if numeric_cols_oca else all_cols_oca, index=numeric_cols_oca.index('Qty') if 'Qty' in numeric_cols_oca else 0, key="oca_qty")
+            with col2_oca:
+                order_id_col_oca = st.selectbox("Select Order ID column:", all_cols_oca, index=all_cols_oca.index('Order ID') if 'Order ID' in all_cols_oca else 0, key="oca_order_id")
+                b2b_col_oca = st.selectbox("Select B2B indicator column (boolean/binary):", [None] + all_cols_oca, index=([None] + all_cols_oca).index('B2B') if 'B2B' in all_cols_oca else 0, key="oca_b2b")
+
+            st.markdown("#### Filters")
+            min_date_oca = df[date_col_oca].min() if date_col_oca and date_col_oca in df.columns and not df[date_col_oca].isnull().all() else datetime.now().date() - pd.Timedelta(days=365)
+            max_date_oca = df[date_col_oca].max() if date_col_oca and date_col_oca in df.columns and not df[date_col_oca].isnull().all() else datetime.now().date()
+            if isinstance(min_date_oca, pd.Timestamp): min_date_oca = min_date_oca.date()
+            if isinstance(max_date_oca, pd.Timestamp): max_date_oca = max_date_oca.date()
+
+            start_date_oca = st.date_input("Start date for OCA:", min_date_oca, min_value=min_date_oca, max_value=max_date_oca, key="oca_start_date")
+            end_date_oca = st.date_input("End date for OCA:", max_date_oca, min_value=min_date_oca, max_value=max_date_oca, key="oca_end_date")
+
+            if start_date_oca > end_date_oca:
+                st.warning("Start date cannot be after end date for Order Characteristics Analysis.")
+
+            if st.button("🔍 Run Order Characteristics Analysis", key="oca_run"):
+                if not all([date_col_oca, amount_col_oca, qty_col_oca, order_id_col_oca]):
+                    st.warning("Please select Date, Amount, Quantity, and Order ID columns.")
+                elif start_date_oca > end_date_oca:
+                    st.warning("Correct the date range before running analysis.")
+                else:
+                    try:
+                        oca_df = df.copy()
+                        oca_df[date_col_oca] = pd.to_datetime(oca_df[date_col_oca], errors='coerce')
+                        oca_df = oca_df.dropna(subset=[date_col_oca, amount_col_oca, qty_col_oca, order_id_col_oca])
+                        oca_df = oca_df[(oca_df[date_col_oca] >= pd.to_datetime(start_date_oca)) & (oca_df[date_col_oca] <= pd.to_datetime(end_date_oca))]
+
+                        if oca_df.empty:
+                            st.warning("No data available for the selected criteria in Order Characteristics Analysis.")
+                        else:
+                            st.subheader("Order Characteristics Results")
+
+                            # Order-level aggregation
+                            order_summary_df = oca_df.groupby(order_id_col_oca).agg(
+                                TotalOrderAmount=(amount_col_oca, 'sum'),
+                                TotalOrderQuantity=(qty_col_oca, 'sum'),
+                                IsB2B=(b2b_col_oca, 'first') if b2b_col_oca and b2b_col_oca in oca_df.columns else (b2b_col_oca, lambda x: None) # Handle if B2B not selected
+                            ).reset_index()
+
+                            st.markdown("#### Distribution of Order Values (Amount per Order)")
+                            fig_ova, ax_ova = plt.subplots()
+                            sns.histplot(order_summary_df['TotalOrderAmount'], kde=True, ax=ax_ova)
+                            ax_ova.set_title("Distribution of Total Order Amount")
+                            ax_ova.set_xlabel("Total Amount per Order")
+                            st.pyplot(fig_ova)
+                            st.write(order_summary_df['TotalOrderAmount'].describe())
+
+                            st.markdown("#### Distribution of Order Sizes (Quantity per Order)")
+                            fig_oqa, ax_oqa = plt.subplots()
+                            sns.histplot(order_summary_df['TotalOrderQuantity'], kde=True, ax=ax_oqa, binwidth=max(1, int(order_summary_df['TotalOrderQuantity'].max()/20)))
+                            ax_oqa.set_title("Distribution of Total Order Quantity")
+                            ax_oqa.set_xlabel("Total Quantity per Order")
+                            st.pyplot(fig_oqa)
+                            st.write(order_summary_df['TotalOrderQuantity'].describe())
+
+                            if b2b_col_oca and b2b_col_oca in oca_df.columns:
+                                st.markdown(f"#### B2B vs. Non-B2B Analysis (based on '{b2b_col_oca}')")
+                                # Ensure B2B column is boolean-like or can be interpreted
+                                if order_summary_df['IsB2B'].isnull().all() or order_summary_df['IsB2B'].nunique() < 2 :
+                                    st.info(f"The B2B column '{b2b_col_oca}' does not have enough distinct values (True/False or 1/0) for comparison or is mostly empty.")
+                                else:
+                                    # Attempt to convert to boolean if it's not already
+                                    try:
+                                        order_summary_df['IsB2B_bool'] = order_summary_df['IsB2B'].astype(bool)
+                                    except: # Fallback for strings like 'Yes'/'No'
+                                        true_vals = [True, 1, 'true', 'yes', 'y', 'b2b']
+                                        order_summary_df['IsB2B_bool'] = order_summary_df['IsB2B'].astype(str).str.lower().isin(true_vals)
+
+                                    b2b_analysis = order_summary_df.groupby('IsB2B_bool').agg(
+                                        TotalRevenue=('TotalOrderAmount', 'sum'),
+                                        NumberOfOrders=(order_id_col_oca, 'count'),
+                                        AverageOrderValue=('TotalOrderAmount', 'mean'),
+                                        AverageOrderQuantity=('TotalOrderQuantity', 'mean')
+                                    )
+                                    b2b_analysis.index.name = f'{b2b_col_oca} Status (True=B2B)'
+                                    st.dataframe(b2b_analysis)
+
+                                    fig_b2b_rev, ax_b2b_rev = plt.subplots()
+                                    b2b_analysis['TotalRevenue'].plot(kind='pie', autopct='%1.1f%%', ax=ax_b2b_rev, title='Revenue by B2B Status')
+                                    st.pyplot(fig_b2b_rev)
+                            else:
+                                st.info("B2B column not selected for B2B vs. Non-B2B analysis.")
+                    except Exception as e:
+                        st.error(f"An error occurred during Order Characteristics Analysis: {e}")
+
+        # Tool 5: Promotion Insights (Conditional)
+        with st.expander("🎉 Promotion Insights (Based on 'promotion-ids')", expanded=False):
+            st.info("Analyze the impact of promotions. This tool relies on a 'promotion-ids' column. The effectiveness depends on how this column is populated in your data (e.g., non-empty for promoted items).")
+
+            all_cols_promo = df.columns.tolist()
+            numeric_cols_promo = get_numeric_columns(df)
+            date_cols_promo = date_cols
+
+            st.markdown("#### Column Selection")
+            col1_promo, col2_promo = st.columns(2)
+            with col1_promo:
+                date_col_promo = st.selectbox("Select Date column:", date_cols_promo if date_cols_promo else all_cols_promo, index=date_cols_promo.index('Date') if 'Date' in date_cols_promo else (all_cols_promo.index('Date') if 'Date' in all_cols_promo else 0), key="promo_date")
+                amount_col_promo = st.selectbox("Select Sales Amount column:", numeric_cols_promo if numeric_cols_promo else all_cols_promo, index=numeric_cols_promo.index('Amount') if 'Amount' in numeric_cols_promo else (all_cols_promo.index('Amount') if 'Amount' in all_cols_promo else 0), key="promo_amount")
+            with col2_promo:
+                qty_col_promo = st.selectbox("Select Quantity Sold column:", numeric_cols_promo if numeric_cols_promo else all_cols_promo, index=numeric_cols_promo.index('Qty') if 'Qty' in numeric_cols_promo else 0, key="promo_qty")
+                promo_ids_col = st.selectbox("Select Promotion IDs column:", [None] + all_cols_promo, index=([None] + all_cols_promo).index('promotion-ids') if 'promotion-ids' in all_cols_promo else 0, key="promo_ids")
+
+            st.markdown("#### Filters")
+            min_date_promo = df[date_col_promo].min() if date_col_promo and date_col_promo in df.columns and not df[date_col_promo].isnull().all() else datetime.now().date() - pd.Timedelta(days=365)
+            max_date_promo = df[date_col_promo].max() if date_col_promo and date_col_promo in df.columns and not df[date_col_promo].isnull().all() else datetime.now().date()
+            if isinstance(min_date_promo, pd.Timestamp): min_date_promo = min_date_promo.date()
+            if isinstance(max_date_promo, pd.Timestamp): max_date_promo = max_date_promo.date()
+
+            start_date_promo = st.date_input("Start date for Promo Analysis:", min_date_promo, min_value=min_date_promo, max_value=max_date_promo, key="promo_start_date")
+            end_date_promo = st.date_input("End date for Promo Analysis:", max_date_promo, min_value=min_date_promo, max_value=max_date_promo, key="promo_end_date")
+
+            if start_date_promo > end_date_promo:
+                st.warning("Start date cannot be after end date for Promotion Insights.")
+
+            if st.button("💡 Run Promotion Insights Analysis", key="promo_run"):
+                if not all([date_col_promo, amount_col_promo, qty_col_promo, promo_ids_col]):
+                    st.warning("Please select Date, Amount, Quantity, and Promotion IDs columns.")
+                elif start_date_promo > end_date_promo:
+                    st.warning("Correct the date range before running analysis.")
+                else:
+                    try:
+                        promo_df = df.copy()
+                        promo_df[date_col_promo] = pd.to_datetime(promo_df[date_col_promo], errors='coerce')
+                        promo_df = promo_df.dropna(subset=[date_col_promo, amount_col_promo, qty_col_promo]) # Promo ID can be NaN
+                        promo_df = promo_df[(promo_df[date_col_promo] >= pd.to_datetime(start_date_promo)) & (promo_df[date_col_promo] <= pd.to_datetime(end_date_promo))]
+
+                        if promo_df.empty:
+                            st.warning("No data available for the selected criteria in Promotion Insights.")
+                        else:
+                            st.subheader("Promotion Insights Results")
+
+                            # Define 'HasPromotion' based on whether promo_ids_col is NaN or empty
+                            promo_df['HasPromotion'] = ~promo_df[promo_ids_col].isnull() & (promo_df[promo_ids_col].astype(str).str.strip() != '')
+
+                            st.markdown("#### Orders With vs. Without Promotions")
+                            promo_summary = promo_df['HasPromotion'].value_counts().rename(index={True: 'With Promotion', False: 'Without Promotion'})
+                            st.bar_chart(promo_summary)
+                            st.write(promo_summary)
+
+                            if promo_df['HasPromotion'].any(): # If there are any promoted items
+                                st.markdown("#### Performance Comparison: Promoted vs. Non-Promoted Items/Orders")
+                                # Note: This is item-level. For order-level, would need to group by Order ID first.
+                                # For simplicity, let's do item-level comparison here.
+                                promo_comparison = promo_df.groupby('HasPromotion').agg(
+                                    TotalRevenue=(amount_col_promo, 'sum'),
+                                    TotalQuantity=(qty_col_promo, 'sum'),
+                                    AverageItemPrice=(amount_col_promo, 'mean'), # Avg price of items in this group
+                                    AverageItemQuantity=(qty_col_promo, 'mean'), # Avg qty of items in this group
+                                    NumberOfTransactions=('Order ID', 'count') # Assuming 'Order ID' is present for transaction count
+                                ).rename(index={True: 'With Promotion', False: 'Without Promotion'})
+                                st.dataframe(promo_comparison)
+
+                                fig_promo_rev, ax_promo_rev = plt.subplots()
+                                promo_comparison['TotalRevenue'].plot(kind='bar', ax=ax_promo_rev, title='Total Revenue: Promoted vs. Non-Promoted')
+                                st.pyplot(fig_promo_rev)
+
+                                # Top Promotion IDs by Revenue (if IDs are meaningful and not too many)
+                                if promo_df[promo_df['HasPromotion']][promo_ids_col].nunique() > 0 and promo_df[promo_df['HasPromotion']][promo_ids_col].nunique() < 100: # Avoid too many unique IDs
+                                    st.markdown(f"#### Top Promotion IDs by Revenue (from '{promo_ids_col}')")
+                                    top_promo_codes = promo_df[promo_df['HasPromotion']].groupby(promo_ids_col)[amount_col_promo].sum().nlargest(10)
+                                    if not top_promo_codes.empty:
+                                        st.bar_chart(top_promo_codes)
+                                        st.dataframe(top_promo_codes.reset_index())
+                                    else:
+                                        st.info("No specific promotion IDs found or no revenue associated after filtering.")
+                                else:
+                                    st.info(f"Promotion ID column '{promo_ids_col}' has too many unique values or no promoted items to list top IDs effectively.")
+                            else:
+                                st.info("No items marked with promotions found in the selected data based on the Promotion IDs column.")
+                    except Exception as e:
+                        st.error(f"An error occurred during Promotion Insights Analysis: {e}")
+
     with tab2:
         st.header("🤖 AI Powered Insights")
         st.write(f"Use Gemini to generate content and analyze your '{DATASET_FILENAME}' data.")
