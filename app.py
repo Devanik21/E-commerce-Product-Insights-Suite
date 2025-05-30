@@ -1301,13 +1301,24 @@ try:
                                 # Use return_inferencedata=True for ArviZ compatibility
                                 trace = pm.sample(2000, tune=1000, cores=1, progressbar=True, return_inferencedata=True)
 
+                            # Assuming trace.posterior might be a method in the environment causing the error.
+                            # If it's a property (as standard), calling it would error.
+                            # If it's a method (as the error implies), it needs to be called.
+                            posterior_dataset = trace.posterior
+                            try:
+                                # Attempt to call if it's a method, to resolve the "method object is not subscriptable" error.
+                                # If it's already a dataset (property), this call will fail, and we use it directly.
+                                posterior_dataset = trace.posterior()
+                            except TypeError: # Likely "'Dataset' object is not callable" if it was already a property
+                                pass # Use trace.posterior as is
+
                             st.subheader("Bayesian A/B Test Results")
                             
                             fig_posterior, axes = plt.subplots(4, 1, figsize=(8, 12), sharex=False) # sharex=False might be better for different scales
-                            az.plot_posterior(trace, var_names=[f'p_{group_names_bab[0]}'], ax=axes[0], show=False, hdi_prob=0.95)
-                            az.plot_posterior(trace, var_names=[f'p_{group_names_bab[1]}'], ax=axes[1], show=False, hdi_prob=0.95)
-                            az.plot_posterior(trace, var_names=['delta'], ax=axes[2], show=False, hdi_prob=0.95, ref_val=0)
-                            az.plot_posterior(trace, var_names=['uplift_rel'], ax=axes[3], show=False, hdi_prob=0.95, ref_val=0)
+                            az.plot_posterior(posterior_dataset, var_names=[f'p_{group_names_bab[0]}'], ax=axes[0], show=False, hdi_prob=0.95)
+                            az.plot_posterior(posterior_dataset, var_names=[f'p_{group_names_bab[1]}'], ax=axes[1], show=False, hdi_prob=0.95)
+                            az.plot_posterior(posterior_dataset, var_names=['delta'], ax=axes[2], show=False, hdi_prob=0.95, ref_val=0)
+                            az.plot_posterior(posterior_dataset, var_names=['uplift_rel'], ax=axes[3], show=False, hdi_prob=0.95, ref_val=0)
                             
                             axes[0].set_title(f'Posterior of rate for {group_names_bab[0]}')
                             axes[1].set_title(f'Posterior of rate for {group_names_bab[1]}')
@@ -1315,11 +1326,9 @@ try:
                             axes[3].set_title(f'Posterior of relative uplift ({group_names_bab[1]} vs {group_names_bab[0]})')
                             plt.tight_layout()
                             st.pyplot(fig_posterior)
-
-                            prob_b_better_a_bab = (trace.posterior['delta'].values > 0).mean()
+                            prob_b_better_a_bab = (posterior_dataset['delta'].values > 0).mean()
                             st.write(f"Probability that Group '{group_names_bab[1]}'s rate is greater than Group '{group_names_bab[0]}'s: {prob_b_better_a_bab:.2%}")
-
-                            hdi_delta = az.hdi(trace.posterior['delta'], hdi_prob=0.95).values
+                            hdi_delta = az.hdi(posterior_dataset['delta'], hdi_prob=0.95).values
                             st.write(f"95% Highest Density Interval for delta (difference): [{hdi_delta[0]:.4f}, {hdi_delta[1]:.4f}]")
 
                             if prob_b_better_a_bab > 0.95 and hdi_delta[0] > 0: # Strong evidence B is better
@@ -1971,4 +1980,3 @@ except pd.errors.EmptyDataError:
 except Exception as e:
     st.error(f"An unexpected error occurred during data loading or initial setup: {e}")
     st.stop()
-
