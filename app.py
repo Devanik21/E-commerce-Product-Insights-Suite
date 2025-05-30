@@ -1084,8 +1084,14 @@ try:
                                         col_metric1.metric("Pseudo R-squared", "N/A")
                                     col_metric2.metric("Log-Likelihood", f"{log_reg_model.llf:.2f}")
                                     col_metric3.metric("LL-Null", f"{log_reg_model.llnull:.2f}")
-                                    
-                                    st.write(f"**Method:** {log_reg_model.model.method}")
+
+                                    model_method_display = "N/A" # Default value
+                                    try:
+                                        model_method_display = log_reg_model.model.method
+                                    except AttributeError:
+                                        # This handles the specific error you encountered.
+                                        st.warning("Note: Could not automatically retrieve the model fitting method. This is unexpected.")
+                                    st.write(f"**Method:** {model_method_display}")
                                     st.write(f"**Number of Observations:** {log_reg_model.nobs}")
                                     # st.write(f"**AIC:** {log_reg_model.aic:.2f}") # Available
                                     # st.write(f"**BIC:** {log_reg_model.bic:.2f}") # Available
@@ -1965,4 +1971,3 @@ except pd.errors.EmptyDataError:
 except Exception as e:
     st.error(f"An unexpected error occurred during data loading or initial setup: {e}")
     st.stop()
-
