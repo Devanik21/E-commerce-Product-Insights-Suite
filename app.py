@@ -796,7 +796,6 @@ try:
         
         # Category 2: Machine Learning - Supervised (MLS)
         with st.expander("🤖 Machine Learning - Supervised (MLS)"):
-                })
                 rfm.columns = ['Recency', 'Frequency', 'Monetary']
                 st.write(rfm.head())
 
