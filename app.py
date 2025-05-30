@@ -1319,7 +1319,7 @@ try:
                             prob_b_better_a_bab = (trace.posterior['delta'].values > 0).mean()
                             st.write(f"Probability that Group '{group_names_bab[1]}'s rate is greater than Group '{group_names_bab[0]}'s: {prob_b_better_a_bab:.2%}")
 
-                            hdi_delta = az.hdi(trace.posterior['delta'], hdi_prob=0.95).x.values
+                            hdi_delta = az.hdi(trace.posterior['delta'], hdi_prob=0.95).values
                             st.write(f"95% Highest Density Interval for delta (difference): [{hdi_delta[0]:.4f}, {hdi_delta[1]:.4f}]")
 
                             if prob_b_better_a_bab > 0.95 and hdi_delta[0] > 0: # Strong evidence B is better
