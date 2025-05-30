@@ -69,6 +69,14 @@ try:
     st.sidebar.caption("Using AI Model: Gemini 1.5 Flash (via `gemini-1.5-flash-latest`)")
     st.sidebar.markdown("---")
     st.sidebar.header("🧠 Analysis Modules")
+    
+    with st.sidebar.expander("Traditional Analysis Options", expanded=True):
+        show_rfm = st.checkbox("🧩 RFM Segmentation", key="rfm_cb")
+        show_churn = st.checkbox("📉 Customer Churn Detection", key="churn_cb")
+        show_forecast = st.checkbox("📈 Sales Forecasting", key="forecast_cb")
+        show_return = st.checkbox("↩️ Return Analysis", key="return_cb")
+        show_ab_summary = st.checkbox("🧪 A/B Test Summary", key="ab_cb")
+
 
     # --- Helper functions for column selection (can be used across tabs) ---
     def get_numeric_columns(data_frame):
@@ -89,7 +97,7 @@ try:
         st.write(f"Select analysis options from the sidebar to view results here. Please map the required fields to the appropriate columns from your '{DATASET_FILENAME}' dataset using the dropdowns below each analysis.")
 
         # RFM Segmentation
-        if st.sidebar.checkbox("🧩 RFM Segmentation", key="rfm_cb"):
+        if show_rfm:
             st.subheader("🧩 RFM Segmentation")
             st.info("RFM typically requires a Customer ID. With the Amazon dataset, you might use 'Order ID' as a proxy for unique transactions, or another column if you have customer identifiers. 'Date' for order date, and 'Amount' for monetary value.")
             
@@ -150,7 +158,7 @@ try:
                 st.warning("RFM analysis requires 'Customer/Entity ID', 'Order Date', and 'Total Amount' columns with valid data. Ensure 'Order Date' column is correctly formatted as datetime.")
 
         # Customer Churn Detection
-        if st.sidebar.checkbox("📉 Customer Churn Detection", key="churn_cb"):
+        if show_churn:
             st.subheader("📉 Customer Churn Detection")
             st.info("Churn detection typically requires a Customer ID. With the Amazon dataset, you might use 'Order ID' or another identifier if available. 'Date' would be the order date.")
             
@@ -181,7 +189,7 @@ try:
                 st.warning("Churn detection requires 'Customer/Entity ID' and 'Order Date' columns with valid data. Ensure 'Order Date' column is correctly formatted as datetime.")
 
         # Sales Forecasting
-        if st.sidebar.checkbox("📈 Sales Forecasting", key="forecast_cb"):
+        if show_forecast:
             st.subheader("📈 Sales Forecasting (Simple Trend)")
             st.info("This uses a simple linear regression for forecasting. Select 'Date' for order date and 'Amount' for sales value.")
 
@@ -225,7 +233,7 @@ try:
                 st.warning("Sales forecasting requires 'Order Date' and 'Total Amount' columns with valid data. Ensure 'Order Date' column is correctly formatted as datetime.")
 
         # Return Analysis
-        if st.sidebar.checkbox("↩️ Return Analysis", key="return_cb"):
+        if show_return:
             st.subheader("↩️ Return Rate by Product")
             st.info(f"Return analysis requires a 'Product ID' (e.g., 'SKU', 'ASIN') and a 'Return Indicator' column (binary 0/1 or True/False). The 'Return Indicator' column is not present by default in the '{DATASET_FILENAME}'. You might need to create or join this data.")
             
@@ -263,7 +271,7 @@ try:
                 st.warning("Please select valid 'Product ID' and 'Return Indicator' columns.")
 
         # A/B Test Visual
-        if st.sidebar.checkbox("🧪 A/B Test Summary", key="ab_cb"):
+        if show_ab_summary:
             st.subheader("🧪 A/B Test Summary")
             st.info(f"A/B testing requires specific 'Group' and 'Conversion' (binary outcome) columns. The '{DATASET_FILENAME}' may not have these directly. You can use categorical columns like 'Sales Channel' or 'Fulfilment' as groups, and 'B2B' status or a binarized numeric column as conversion.")
             
@@ -811,4 +819,3 @@ except pd.errors.EmptyDataError:
 except Exception as e:
     st.error(f"An unexpected error occurred during data loading or initial setup: {e}")
     st.stop()
-
