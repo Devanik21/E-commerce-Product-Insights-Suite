@@ -2884,8 +2884,6 @@ try:
                         except Exception as e:
                             st.error(f"Error during Promotion Effectiveness by Category analysis: {e}")
             st.markdown("---")
-
-
         # Category 2: Machine Learning - Supervised (MLS)
         with st.expander("🤖 Machine Learning - Supervised (MLS)"):
             # Content for Supervised Machine Learning models will go here.
@@ -2903,11 +2901,11 @@ except pd.errors.EmptyDataError:
     st.stop()
 except Exception as e:
     st.error(f"An unexpected error occurred during data loading or initial setup: {e}")
-                        st.error(f"Error during Repeat Purchase Analysis: {e}")
+    st.error(f"Error during Repeat Purchase Analysis: {e}")
 
 
         # Category 2: Machine Learning - Supervised (MLS)
-        with st.expander("🤖 Machine Learning - Supervised (MLS)"):
+    with st.expander("🤖 Machine Learning - Supervised (MLS)"):
             # Content for Supervised Machine Learning models will go here.
             # The RFM analysis code previously here was a duplicate from Tab 1
             # and caused an IndentationError. It has been removed.
