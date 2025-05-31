@@ -2306,7 +2306,7 @@ try:
         st.markdown("---") # This markdown is now correctly AFTER the FOM expander
 
             # --- New Advanced Tool 1: ABC Analysis for Product Prioritization ---
-            with st.expander("🥇 ABC Analysis for Product Prioritization", expanded=False):
+        with st.expander("🥇 ABC Analysis for Product Prioritization", expanded=False):
                 st.info("Classify products (SKU) into A, B, C categories based on their contribution to total revenue. 'A' items are high-value, 'C' are low-value.")
                 all_cols_adv1 = df.columns.tolist()
                 numeric_cols_adv1 = get_numeric_columns(df)
@@ -2353,7 +2353,7 @@ try:
             st.markdown("---")
 
             # --- New Advanced Tool 2: Cross-Category Purchase Analysis ---
-            with st.expander("🔗 Cross-Category Purchase Analysis", expanded=False):
+    with st.expander("🔗 Cross-Category Purchase Analysis", expanded=False):
                 st.info("Identify which product categories are frequently purchased together within the same order. Requires 'Order ID' and 'Category' columns.")
                 all_cols_adv2 = df.columns.tolist()
                 
@@ -2410,7 +2410,7 @@ try:
             st.markdown("---")
 
             # --- New Advanced Tool 3: Sales Volatility Analysis ---
-            with st.expander("📉 Sales Volatility Analysis", expanded=False):
+    with st.expander("📉 Sales Volatility Analysis", expanded=False):
                 st.info("Identify products with highly fluctuating sales (high coefficient of variation). Requires SKU, Date, and a sales value (Qty or Amount).")
                 all_cols_adv3 = df.columns.tolist()
                 numeric_cols_adv3 = get_numeric_columns(df)
@@ -2452,7 +2452,7 @@ try:
             st.markdown("---")
 
             # --- New Advanced Tool 4: Customer Acquisition Cohort Value Analysis ---
-            with st.expander("📈 Customer Acquisition Cohort Value Analysis", expanded=False):
+    with st.expander("📈 Customer Acquisition Cohort Value Analysis", expanded=False):
                 st.info("Track the average spending of new customer cohorts (based on first purchase month) over subsequent months.")
                 all_cols_adv4 = df.columns.tolist()
                 numeric_cols_adv4 = get_numeric_columns(df)
@@ -2508,7 +2508,7 @@ try:
             st.markdown("---")
 
             # --- New Advanced Tool 5: High-Value vs. Low-Value Order Profiling ---
-            with st.expander("💰 High-Value vs. Low-Value Order Profiling", expanded=False):
+    with st.expander("💰 High-Value vs. Low-Value Order Profiling", expanded=False):
                 st.info("Compare characteristics of high-value orders vs. low-value orders based on a defined threshold.")
                 all_cols_adv5 = df.columns.tolist()
                 numeric_cols_adv5 = get_numeric_columns(df)
@@ -2556,7 +2556,7 @@ try:
             st.markdown("---")
 
             # --- New Advanced Tool 6: Product Return Rate by Attribute ---
-            with st.expander("↩️ Product Return Rate by Attribute", expanded=False):
+    with st.expander("↩️ Product Return Rate by Attribute", expanded=False):
                 st.info("Analyze product return rates grouped by a selected attribute (e.g., Category, Style, Size). Requires a Product ID, Return Indicator, and an Attribute column.")
                 all_cols_adv6 = df.columns.tolist()
                 categorical_cols_adv6 = get_categorical_columns(df, nunique_threshold=50) # Allow more unique values for attributes
@@ -2613,7 +2613,7 @@ try:
             st.markdown("---")
 
             # --- New Advanced Tool 7: Fulfillment Efficiency by Region ---
-            with st.expander("🚚 Fulfillment Efficiency by Region", expanded=False):
+    with st.expander("🚚 Fulfillment Efficiency by Region", expanded=False):
                 st.info("Compare fulfillment methods' performance (e.g., AOV, quantity per order) across different regions.")
                 all_cols_adv7 = df.columns.tolist()
                 numeric_cols_adv7 = get_numeric_columns(df)
@@ -2670,7 +2670,7 @@ try:
             st.markdown("---")
 
             # --- New Advanced Tool 8: B2B vs. B2C Sales Dynamics ---
-            with st.expander("🏢 B2B vs. B2C Sales Dynamics", expanded=False):
+    with st.expander("🏢 B2B vs. B2C Sales Dynamics", expanded=False):
                 st.info("Deeper dive into B2B vs. B2C sales patterns (e.g., product preferences, AOV over time). Requires a B2B indicator column.")
                 all_cols_adv8 = df.columns.tolist()
                 numeric_cols_adv8 = get_numeric_columns(df)
@@ -2743,7 +2743,7 @@ try:
             st.markdown("---")
 
             # --- New Advanced Tool 9: Sales Seasonality Index by Category ---
-            with st.expander("📅 Sales Seasonality Index by Category", expanded=False):
+    with st.expander("📅 Sales Seasonality Index by Category", expanded=False):
                 st.info("Calculate and visualize a seasonality index for different product categories to understand periodic sales fluctuations.")
                 all_cols_adv9 = df.columns.tolist()
                 numeric_cols_adv9 = get_numeric_columns(df)
@@ -2811,7 +2811,7 @@ try:
             st.markdown("---")
 
             # --- New Advanced Tool 10: Promotion Effectiveness by Product Category ---
-            with st.expander("🎉 Promotion Effectiveness by Product Category", expanded=False):
+    with st.expander("🎉 Promotion Effectiveness by Product Category", expanded=False):
                 st.info("Analyze if promotions are more effective for certain product categories by comparing AOV or Quantity lift for promoted vs. non-promoted items within those categories.")
                 all_cols_adv10 = df.columns.tolist()
                 numeric_cols_adv10 = get_numeric_columns(df)
@@ -2885,7 +2885,7 @@ try:
                             st.error(f"Error during Promotion Effectiveness by Category analysis: {e}")
             st.markdown("---")
         # This was the end of the 10 new tools. Now the MLS expander follows at the correct indentation.
-        with st.expander("🤖 Machine Learning - Supervised (MLS)"):
+    with st.expander("🤖 Machine Learning - Supervised (MLS)"):
             # Content for Supervised Machine Learning models will go here.
             # The RFM analysis code previously here was a duplicate from Tab 1
             # and caused an IndentationError. It has been removed.
