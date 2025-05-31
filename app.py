@@ -1977,7 +1977,7 @@ try:
             amount_col_fom4 = st.selectbox("Select Sales Amount column:", numeric_cols_fom4, index=numeric_cols_fom4.index('Amount') if 'Amount' in numeric_cols_fom4 else 0, key="fom4_amount")
             order_id_col_fom4 = st.selectbox("Select Order ID column:", all_cols_fom4, index=all_cols_fom4.index('Order ID') if 'Order ID' in all_cols_fom4 else 0, key="fom4_order_id")
             date_col_fom4 = st.selectbox("Select Date column (for trends):", date_cols_fom4 if date_cols_fom4 else all_cols_fom4, index=date_cols_fom4.index('Date') if 'Date' in date_cols_fom4 else 0, key="fom4_date")
-            aggregation_fr eq_fom4 = st.selectbox("Aggregate trend by:", ["W", "M", "Q"], index=1, format_func=lambda x: {"W":"Weekly", "M":"Monthly", "Q":"Quarterly"}[x], key="fom4_freq")
+            aggregation_freq_fom4 = st.selectbox("Aggregate trend by:", ["W", "M", "Q"], index=1, format_func=lambda x: {"W":"Weekly", "M":"Monthly", "Q":"Quarterly"}[x], key="fom4_freq")
 
             if st.button("💳 Analyze Payment Methods", key="fom4_run"):
                 if not all([payment_col_fom4, amount_col_fom4, order_id_col_fom4, date_col_fom4]):
