@@ -1977,7 +1977,7 @@ try:
             amount_col_fom4 = st.selectbox("Select Sales Amount column:", numeric_cols_fom4, index=numeric_cols_fom4.index('Amount') if 'Amount' in numeric_cols_fom4 else 0, key="fom4_amount")
             order_id_col_fom4 = st.selectbox("Select Order ID column:", all_cols_fom4, index=all_cols_fom4.index('Order ID') if 'Order ID' in all_cols_fom4 else 0, key="fom4_order_id")
             date_col_fom4 = st.selectbox("Select Date column (for trends):", date_cols_fom4 if date_cols_fom4 else all_cols_fom4, index=date_cols_fom4.index('Date') if 'Date' in date_cols_fom4 else 0, key="fom4_date")
-            aggregation_freq_fom4 = st.selectbox("Aggregate trend by:", ["W", "M", "Q"], index=1, format_func=lambda x: {"W":"Weekly", "M":"Monthly", "Q":"Quarterly"}[x], key="fom4_freq")
+            aggregation_fr eq_fom4 = st.selectbox("Aggregate trend by:", ["W", "M", "Q"], index=1, format_func=lambda x: {"W":"Weekly", "M":"Monthly", "Q":"Quarterly"}[x], key="fom4_freq")
 
             if st.button("💳 Analyze Payment Methods", key="fom4_run"):
                 if not all([payment_col_fom4, amount_col_fom4, order_id_col_fom4, date_col_fom4]):
@@ -2303,6 +2303,607 @@ try:
 
                     except Exception as e:
                         st.error(f"Error during Repeat Purchase Analysis: {e}")
+            st.markdown("---")
+
+            # --- New Advanced Tool 1: ABC Analysis for Product Prioritization ---
+            with st.expander("🥇 ABC Analysis for Product Prioritization", expanded=False):
+                st.info("Classify products (SKU) into A, B, C categories based on their contribution to total revenue. 'A' items are high-value, 'C' are low-value.")
+                all_cols_adv1 = df.columns.tolist()
+                numeric_cols_adv1 = get_numeric_columns(df)
+
+                sku_col_adv1 = st.selectbox("Select Product ID/SKU column:", all_cols_adv1, index=all_cols_adv1.index('SKU') if 'SKU' in all_cols_adv1 else 0, key="adv1_sku")
+                amount_col_adv1 = st.selectbox("Select Sales Amount column:", numeric_cols_adv1, index=numeric_cols_adv1.index('Amount') if 'Amount' in numeric_cols_adv1 else 0, key="adv1_amount")
+
+                if st.button("📊 Run ABC Analysis", key="adv1_run"):
+                    if not sku_col_adv1 or not amount_col_adv1:
+                        st.warning("Please select both SKU and Amount columns for ABC Analysis.")
+                    else:
+                        try:
+                            abc_df = df[[sku_col_adv1, amount_col_adv1]].copy().dropna()
+                            if abc_df.empty:
+                                st.warning("No data available for ABC Analysis after filtering.")
+                            else:
+                                product_revenue = abc_df.groupby(sku_col_adv1)[amount_col_adv1].sum().sort_values(ascending=False).reset_index()
+                                product_revenue['RevenueShare'] = product_revenue[amount_col_adv1] / product_revenue[amount_col_adv1].sum()
+                                product_revenue['CumulativeRevenueShare'] = product_revenue['RevenueShare'].cumsum()
+
+                                def abc_classification(cum_share):
+                                    if cum_share <= 0.8:
+                                        return 'A'
+                                    elif cum_share <= 0.95:
+                                        return 'B'
+                                    else:
+                                        return 'C'
+                                product_revenue['ABC_Category'] = product_revenue['CumulativeRevenueShare'].apply(abc_classification)
+
+                                st.markdown("##### ABC Analysis Results")
+                                st.dataframe(product_revenue.head(20))
+
+                                abc_summary = product_revenue.groupby('ABC_Category')[amount_col_adv1].agg(['sum', 'count']).rename(columns={'sum':'TotalRevenue', 'count':'NumberOfSKUs'})
+                                abc_summary['RevenuePercentage'] = (abc_summary['TotalRevenue'] / abc_summary['TotalRevenue'].sum()) * 100
+                                st.markdown("###### Summary by ABC Category")
+                                st.dataframe(abc_summary)
+
+                                fig_abc, ax_abc = plt.subplots()
+                                abc_summary['TotalRevenue'].plot(kind='pie', autopct='%1.1f%%', ax=ax_abc, title='Revenue Contribution by ABC Category')
+                                st.pyplot(fig_abc)
+
+                        except Exception as e:
+                            st.error(f"Error during ABC Analysis: {e}")
+            st.markdown("---")
+
+            # --- New Advanced Tool 2: Cross-Category Purchase Analysis ---
+            with st.expander("🔗 Cross-Category Purchase Analysis", expanded=False):
+                st.info("Identify which product categories are frequently purchased together within the same order. Requires 'Order ID' and 'Category' columns.")
+                all_cols_adv2 = df.columns.tolist()
+                
+                order_id_col_adv2 = st.selectbox("Select Order ID column:", all_cols_adv2, index=all_cols_adv2.index('Order ID') if 'Order ID' in all_cols_adv2 else 0, key="adv2_order_id")
+                category_col_adv2 = st.selectbox("Select Category column:", all_cols_adv2, index=all_cols_adv2.index('Category') if 'Category' in all_cols_adv2 else 0, key="adv2_category")
+
+                if st.button("🤝 Run Cross-Category Analysis", key="adv2_run"):
+                    if not order_id_col_adv2 or not category_col_adv2:
+                        st.warning("Please select both Order ID and Category columns.")
+                    else:
+                        try:
+                            cross_cat_df = df[[order_id_col_adv2, category_col_adv2]].copy().dropna().drop_duplicates()
+                            if cross_cat_df.empty or cross_cat_df[category_col_adv2].nunique() < 2:
+                                st.warning("Not enough data or distinct categories for cross-purchase analysis.")
+                            else:
+                                # Create a list of categories per order
+                                order_categories = cross_cat_df.groupby(order_id_col_adv2)[category_col_adv2].apply(list).reset_index()
+                                
+                                # Create a co-occurrence matrix
+                                from itertools import combinations
+                                from collections import Counter
+
+                                co_occurrence = Counter()
+                                for categories_in_order in order_categories[category_col_adv2]:
+                                    if len(categories_in_order) >= 2: # Need at least two categories to form a pair
+                                        for cat_pair in combinations(sorted(list(set(categories_in_order))), 2):
+                                            co_occurrence[cat_pair] += 1
+                                
+                                if not co_occurrence:
+                                    st.info("No orders found with multiple distinct categories.")
+                                else:
+                                    co_occurrence_df = pd.DataFrame(co_occurrence.items(), columns=['CategoryPair', 'Frequency']).sort_values(by='Frequency', ascending=False)
+                                    
+                                    st.markdown("##### Top Co-purchased Category Pairs")
+                                    st.dataframe(co_occurrence_df.head(15))
+
+                                    # For heatmap (optional, can be large)
+                                    if co_occurrence_df.shape[0] < 200 and cross_cat_df[category_col_adv2].nunique() < 25: # Limit heatmap size
+                                        cat_list = sorted(cross_cat_df[category_col_adv2].unique())
+                                        adj_matrix = pd.DataFrame(0, index=cat_list, columns=cat_list)
+                                        for pair, freq in co_occurrence.items():
+                                            adj_matrix.loc[pair[0], pair[1]] = freq
+                                            adj_matrix.loc[pair[1], pair[0]] = freq # Symmetric
+                                        
+                                        fig_co, ax_co = plt.subplots(figsize=(max(8, len(cat_list)*0.5), max(6, len(cat_list)*0.4)))
+                                        sns.heatmap(adj_matrix, annot=False, cmap="viridis", ax=ax_co)
+                                        ax_co.set_title("Category Co-occurrence Heatmap")
+                                        plt.tight_layout()
+                                        st.pyplot(fig_co)
+                                    else:
+                                        st.info("Heatmap skipped due to large number of categories/pairs for better readability.")
+                        except Exception as e:
+                            st.error(f"Error during Cross-Category Purchase Analysis: {e}")
+            st.markdown("---")
+
+            # --- New Advanced Tool 3: Sales Volatility Analysis ---
+            with st.expander("📉 Sales Volatility Analysis", expanded=False):
+                st.info("Identify products with highly fluctuating sales (high coefficient of variation). Requires SKU, Date, and a sales value (Qty or Amount).")
+                all_cols_adv3 = df.columns.tolist()
+                numeric_cols_adv3 = get_numeric_columns(df)
+                date_cols_adv3 = date_cols
+
+                sku_col_adv3 = st.selectbox("Select Product ID/SKU column:", all_cols_adv3, index=all_cols_adv3.index('SKU') if 'SKU' in all_cols_adv3 else 0, key="adv3_sku")
+                date_col_adv3 = st.selectbox("Select Date column:", date_cols_adv3, index=date_cols_adv3.index('Date') if 'Date' in date_cols_adv3 else 0, key="adv3_date")
+                value_col_adv3 = st.selectbox("Select Sales Value column (Qty or Amount):", numeric_cols_adv3, index=numeric_cols_adv3.index('Qty') if 'Qty' in numeric_cols_adv3 else (numeric_cols_adv3.index('Amount') if 'Amount' in numeric_cols_adv3 else 0), key="adv3_value")
+                agg_freq_adv3 = st.selectbox("Aggregation period for volatility:", ["W", "M"], index=1, format_func=lambda x: {"W":"Weekly", "M":"Monthly"}[x], key="adv3_freq")
+
+                if st.button("🌪️ Analyze Sales Volatility", key="adv3_run"):
+                    if not all([sku_col_adv3, date_col_adv3, value_col_adv3]):
+                        st.warning("Please select SKU, Date, and Sales Value columns.")
+                    else:
+                        try:
+                            vol_df = df[[sku_col_adv3, date_col_adv3, value_col_adv3]].copy()
+                            vol_df[date_col_adv3] = pd.to_datetime(vol_df[date_col_adv3], errors='coerce')
+                            vol_df = vol_df.dropna()
+
+                            if vol_df.empty:
+                                st.warning("No data for volatility analysis after filtering.")
+                            else:
+                                sales_per_period = vol_df.groupby([sku_col_adv3, pd.Grouper(key=date_col_adv3, freq=agg_freq_adv3)])[value_col_adv3].sum().reset_index()
+                                
+                                # Calculate Coefficient of Variation (std_dev / mean)
+                                volatility_stats = sales_per_period.groupby(sku_col_adv3)[value_col_adv3].agg(['mean', 'std']).reset_index()
+                                volatility_stats['CoV'] = (volatility_stats['std'] / volatility_stats['mean']).fillna(0) # Handle mean=0
+                                volatility_stats = volatility_stats.sort_values(by='CoV', ascending=False)
+
+                                st.markdown("##### Sales Volatility (Coefficient of Variation)")
+                                st.dataframe(volatility_stats.head(20))
+
+                                fig_vol, ax_vol = plt.subplots()
+                                sns.histplot(volatility_stats[volatility_stats['CoV'] > 0]['CoV'], kde=True, ax=ax_vol, bins=30)
+                                ax_vol.set_title(f"Distribution of Sales Volatility (CoV) - {agg_freq_adv3} aggregation")
+                                st.pyplot(fig_vol)
+                        except Exception as e:
+                            st.error(f"Error during Sales Volatility Analysis: {e}")
+            st.markdown("---")
+
+            # --- New Advanced Tool 4: Customer Acquisition Cohort Value Analysis ---
+            with st.expander("📈 Customer Acquisition Cohort Value Analysis", expanded=False):
+                st.info("Track the average spending of new customer cohorts (based on first purchase month) over subsequent months.")
+                all_cols_adv4 = df.columns.tolist()
+                numeric_cols_adv4 = get_numeric_columns(df)
+                date_cols_adv4 = date_cols
+
+                cust_id_col_adv4 = st.selectbox("Select Customer ID column (or proxy):", all_cols_adv4, index=all_cols_adv4.index('Order ID') if 'Order ID' in all_cols_adv4 else 0, key="adv4_cust_id")
+                date_col_adv4 = st.selectbox("Select Order Date column:", date_cols_adv4, index=date_cols_adv4.index('Date') if 'Date' in date_cols_adv4 else 0, key="adv4_date")
+                amount_col_adv4 = st.selectbox("Select Sales Amount column:", numeric_cols_adv4, index=numeric_cols_adv4.index('Amount') if 'Amount' in numeric_cols_adv4 else 0, key="adv4_amount")
+
+                if st.button("👥 Analyze Acquisition Cohort Value", key="adv4_run"):
+                    if not all([cust_id_col_adv4, date_col_adv4, amount_col_adv4]):
+                        st.warning("Please select Customer ID, Date, and Amount columns.")
+                    else:
+                        try:
+                            cohort_val_df = df[[cust_id_col_adv4, date_col_adv4, amount_col_adv4]].copy()
+                            cohort_val_df[date_col_adv4] = pd.to_datetime(cohort_val_df[date_col_adv4], errors='coerce')
+                            cohort_val_df = cohort_val_df.dropna()
+
+                            if cohort_val_df.empty:
+                                st.warning("No data for cohort value analysis.")
+                            else:
+                                cohort_val_df['OrderMonth'] = cohort_val_df[date_col_adv4].dt.to_period('M')
+                                cohort_val_df['CohortMonth'] = cohort_val_df.groupby(cust_id_col_adv4)['OrderMonth'].transform('min')
+                                
+                                def get_cohort_period_adv(df_cohort, event_month_col='OrderMonth', cohort_month_col='CohortMonth'):
+                                    df_cohort['CohortPeriod'] = (df_cohort[event_month_col].dt.year - df_cohort[cohort_month_col].dt.year) * 12 + \
+                                                              (df_cohort[event_month_col].dt.month - df_cohort[cohort_month_col].dt.month)
+                                    return df_cohort
+                                cohort_val_df = get_cohort_period_adv(cohort_val_df)
+
+                                cohort_data = cohort_val_df.groupby(['CohortMonth', 'CohortPeriod']).agg(
+                                    TotalSpend=(amount_col_adv4, 'sum'),
+                                    UniqueCustomers=(cust_id_col_adv4, 'nunique')
+                                ).reset_index()
+                                cohort_data['AvgSpendPerCustomer'] = cohort_data['TotalSpend'] / cohort_data['UniqueCustomers']
+                                
+                                cohort_pivot_value = cohort_data.pivot_table(index='CohortMonth', columns='CohortPeriod', values='AvgSpendPerCustomer')
+                                
+                                st.markdown("##### Average Spend per Customer by Acquisition Cohort (Monthly)")
+                                if not cohort_pivot_value.empty:
+                                    fig_cohort_val, ax_cohort_val = plt.subplots(figsize=(12, max(6, len(cohort_pivot_value)*0.4)))
+                                    sns.heatmap(cohort_pivot_value, annot=True, fmt='.0f', cmap="Greens", ax=ax_cohort_val) # fmt for currency
+                                    ax_cohort_val.set_title('Avg. Monthly Spend per Customer by Acquisition Cohort')
+                                    ax_cohort_val.set_xlabel('Months Since Acquisition')
+                                    ax_cohort_val.set_ylabel('Acquisition Cohort (First Purchase Month)')
+                                    plt.tight_layout()
+                                    st.pyplot(fig_cohort_val)
+                                    st.caption(f"Note: If '{cust_id_col_adv4}' is 'Order ID', this analysis is per order, not unique customer.")
+                                else:
+                                    st.info("Not enough data to generate cohort value matrix.")
+                        except Exception as e:
+                            st.error(f"Error during Customer Acquisition Cohort Value Analysis: {e}")
+            st.markdown("---")
+
+            # --- New Advanced Tool 5: High-Value vs. Low-Value Order Profiling ---
+            with st.expander("💰 High-Value vs. Low-Value Order Profiling", expanded=False):
+                st.info("Compare characteristics of high-value orders vs. low-value orders based on a defined threshold.")
+                all_cols_adv5 = df.columns.tolist()
+                numeric_cols_adv5 = get_numeric_columns(df)
+                categorical_cols_adv5 = get_categorical_columns(df)
+
+                order_id_col_adv5 = st.selectbox("Select Order ID column:", all_cols_adv5, index=all_cols_adv5.index('Order ID') if 'Order ID' in all_cols_adv5 else 0, key="adv5_order_id")
+                amount_col_adv5 = st.selectbox("Select Order Amount column:", numeric_cols_adv5, index=numeric_cols_adv5.index('Amount') if 'Amount' in numeric_cols_adv5 else 0, key="adv5_amount")
+                profiling_cols_adv5 = st.multiselect("Select categorical columns for profiling (e.g., Category, Sales Channel):", categorical_cols_adv5, default=[col for col in ['Category', 'Sales Channel', 'Fulfilment', 'B2B'] if col in categorical_cols_adv5], key="adv5_profile_cols")
+                
+                # Assuming each row is an item, first aggregate by Order ID if 'Amount' is item amount
+                # For this dataset, 'Order ID' is unique per row, so 'Amount' is effectively order amount.
+                # If 'Order ID' could group items, we'd sum 'Amount' first.
+                value_threshold_adv5 = st.number_input("Define threshold for 'High-Value' order (e.g., top 25% quantile):", value=df[amount_col_adv5].quantile(0.75) if amount_col_adv5 in df.columns and not df[amount_col_adv5].empty else 100.0, key="adv5_threshold")
+
+                if st.button("🔍 Profile Order Values", key="adv5_run"):
+                    if not order_id_col_adv5 or not amount_col_adv5:
+                        st.warning("Please select Order ID and Amount columns.")
+                    else:
+                        try:
+                            profile_df = df.copy() # Use all columns for profiling
+                            profile_df['OrderValueSegment'] = np.where(profile_df[amount_col_adv5] >= value_threshold_adv5, 'High-Value', 'Low-Value')
+                            
+                            st.markdown(f"##### Profiling High-Value (>= {value_threshold_adv5}) vs. Low-Value Orders")
+                            st.write("Segment Sizes:")
+                            st.write(profile_df['OrderValueSegment'].value_counts())
+
+                            for col_to_profile in profiling_cols_adv5:
+                                if col_to_profile in profile_df.columns:
+                                    st.markdown(f"###### Distribution of '{col_to_profile}' by Order Value Segment")
+                                    summary_table = pd.crosstab(profile_df[col_to_profile], profile_df['OrderValueSegment'], normalize='columns') * 100
+                                    st.dataframe(summary_table.round(1))
+                                    
+                                    # Avoid plotting if too many unique values in the profiling column
+                                    if profile_df[col_to_profile].nunique() < 15:
+                                        fig_profile, ax_profile = plt.subplots()
+                                        sns.countplot(data=profile_df, x=col_to_profile, hue='OrderValueSegment', ax=ax_profile)
+                                        ax_profile.set_title(f"'{col_to_profile}' by Order Value Segment")
+                                        plt.xticks(rotation=45, ha="right")
+                                        plt.tight_layout()
+                                        st.pyplot(fig_profile)
+                                    else:
+                                        st.info(f"Plot for '{col_to_profile}' skipped due to high cardinality ({profile_df[col_to_profile].nunique()} unique values). Table provided above.")
+                        except Exception as e:
+                            st.error(f"Error during Order Value Profiling: {e}")
+            st.markdown("---")
+
+            # --- New Advanced Tool 6: Product Return Rate by Attribute ---
+            with st.expander("↩️ Product Return Rate by Attribute", expanded=False):
+                st.info("Analyze product return rates grouped by a selected attribute (e.g., Category, Style, Size). Requires a Product ID, Return Indicator, and an Attribute column.")
+                all_cols_adv6 = df.columns.tolist()
+                categorical_cols_adv6 = get_categorical_columns(df, nunique_threshold=50) # Allow more unique values for attributes
+
+                product_id_col_adv6 = st.selectbox("Select Product ID column (e.g., SKU):", all_cols_adv6, index=all_cols_adv6.index('SKU') if 'SKU' in all_cols_adv6 else 0, key="adv6_pid")
+                return_indicator_col_adv6 = st.selectbox("Select Return Indicator column (binary 0/1 or True/False):", [None] + all_cols_adv6, index=0, key="adv6_return_indicator")
+                attribute_col_adv6 = st.selectbox("Select Attribute column for grouping (e.g., Category, Style):", [None] + categorical_cols_adv6, index=0, key="adv6_attribute")
+
+                if st.button("📉 Analyze Return Rate by Attribute", key="adv6_run"):
+                    if not all([product_id_col_adv6, return_indicator_col_adv6, attribute_col_adv6]):
+                        st.warning("Please select Product ID, Return Indicator, and Attribute columns.")
+                    elif return_indicator_col_adv6 not in df.columns:
+                        st.warning(f"Return Indicator column '{return_indicator_col_adv6}' not found.")
+                    elif attribute_col_adv6 not in df.columns:
+                        st.warning(f"Attribute column '{attribute_col_adv6}' not found.")
+                    else:
+                        try:
+                            return_attr_df = df[[product_id_col_adv6, return_indicator_col_adv6, attribute_col_adv6]].copy().dropna()
+                            
+                            # Process return indicator to be binary 0/1
+                            if return_attr_df[return_indicator_col_adv6].dtype == 'object':
+                                true_vals_adv6 = ['true', 'yes', '1', 'returned', 'shipped - returned to seller'] 
+                                false_vals_adv6 = ['false', 'no', '0', 'not returned', 'shipped']
+                                return_attr_df['IsReturnedBinary'] = return_attr_df[return_indicator_col_adv6].astype(str).str.lower().map(lambda x: 1 if x in true_vals_adv6 else (0 if x in false_vals_adv6 else pd.NA))
+                            else:
+                                return_attr_df['IsReturnedBinary'] = pd.to_numeric(return_attr_df[return_indicator_col_adv6], errors='coerce')
+                            
+                            return_attr_df = return_attr_df.dropna(subset=['IsReturnedBinary'])
+
+                            if not return_attr_df['IsReturnedBinary'].isin([0,1]).all():
+                                st.warning(f"Column '{return_indicator_col_adv6}' must be binary (0/1) after processing. Check its values.")
+                            elif return_attr_df.empty:
+                                st.warning("No valid data for return analysis by attribute.")
+                            else:
+                                return_rate_by_attr = return_attr_df.groupby(attribute_col_adv6)['IsReturnedBinary'].agg(['mean', 'count'])
+                                return_rate_by_attr.columns = ['ReturnRate', 'TotalItems']
+                                return_rate_by_attr['ReturnRate'] = return_rate_by_attr['ReturnRate'] * 100 # As percentage
+                                return_rate_by_attr = return_rate_by_attr.sort_values(by='ReturnRate', ascending=False)
+
+                                st.markdown(f"##### Return Rate by '{attribute_col_adv6}'")
+                                st.dataframe(return_rate_by_attr.head(20))
+
+                                if not return_rate_by_attr.empty and return_rate_by_attr.shape[0] < 30 : # Limit plot for readability
+                                    fig_ret_attr, ax_ret_attr = plt.subplots(figsize=(10, max(5, return_rate_by_attr.shape[0]*0.3)))
+                                    return_rate_by_attr['ReturnRate'].sort_values(ascending=True).plot(kind='barh', ax=ax_ret_attr)
+                                    ax_ret_attr.set_title(f"Return Rate (%) by {attribute_col_adv6}")
+                                    ax_ret_attr.set_xlabel("Return Rate (%)")
+                                    plt.tight_layout()
+                                    st.pyplot(fig_ret_attr)
+                                else:
+                                    st.info("Bar chart skipped due to high number of attribute values. Table provided above.")
+                        except Exception as e:
+                            st.error(f"Error during Return Rate by Attribute analysis: {e}")
+            st.markdown("---")
+
+            # --- New Advanced Tool 7: Fulfillment Efficiency by Region ---
+            with st.expander("🚚 Fulfillment Efficiency by Region", expanded=False):
+                st.info("Compare fulfillment methods' performance (e.g., AOV, quantity per order) across different regions.")
+                all_cols_adv7 = df.columns.tolist()
+                numeric_cols_adv7 = get_numeric_columns(df)
+                categorical_cols_adv7 = get_categorical_columns(df)
+
+                fulfilment_col_adv7 = st.selectbox("Select Fulfilment column:", all_cols_adv7, index=all_cols_adv7.index('Fulfilment') if 'Fulfilment' in all_cols_adv7 else 0, key="adv7_fulfilment")
+                region_col_adv7 = st.selectbox("Select Region column (e.g., ship-state):", all_cols_adv7, index=all_cols_adv7.index('ship-state') if 'ship-state' in all_cols_adv7 else 0, key="adv7_region")
+                amount_col_adv7 = st.selectbox("Select Sales Amount column:", numeric_cols_adv7, index=numeric_cols_adv7.index('Amount') if 'Amount' in numeric_cols_adv7 else 0, key="adv7_amount")
+                qty_col_adv7 = st.selectbox("Select Quantity Sold column:", numeric_cols_adv7, index=numeric_cols_adv7.index('Qty') if 'Qty' in numeric_cols_adv7 else 0, key="adv7_qty")
+                order_id_col_adv7 = st.selectbox("Select Order ID column:", all_cols_adv7, index=all_cols_adv7.index('Order ID') if 'Order ID' in all_cols_adv7 else 0, key="adv7_order_id")
+
+                if st.button("🗺️ Analyze Fulfillment by Region", key="adv7_run"):
+                    if not all([fulfilment_col_adv7, region_col_adv7, amount_col_adv7, qty_col_adv7, order_id_col_adv7]):
+                        st.warning("Please select all required columns.")
+                    else:
+                        try:
+                            ff_region_df = df[[fulfilment_col_adv7, region_col_adv7, amount_col_adv7, qty_col_adv7, order_id_col_adv7]].copy().dropna()
+                            if ff_region_df.empty:
+                                st.warning("No data for fulfillment by region analysis.")
+                            else:
+                                # Aggregate by Order ID first if necessary, then by fulfilment/region
+                                # Assuming 'Order ID' is unique per row for this dataset's structure for Amount/Qty
+                                regional_ff_summary = ff_region_df.groupby([region_col_adv7, fulfilment_col_adv7]).agg(
+                                    TotalRevenue=(amount_col_adv7, 'sum'),
+                                    TotalQuantity=(qty_col_adv7, 'sum'),
+                                    NumberOfOrders=(order_id_col_adv7, 'nunique') # Number of unique orders
+                                ).reset_index()
+                                regional_ff_summary['AOV'] = regional_ff_summary['TotalRevenue'] / regional_ff_summary['NumberOfOrders'].replace(0, np.nan)
+                                regional_ff_summary['AvgQtyPerOrder'] = regional_ff_summary['TotalQuantity'] / regional_ff_summary['NumberOfOrders'].replace(0, np.nan)
+                                regional_ff_summary = regional_ff_summary.dropna(subset=['AOV'])
+
+                                st.markdown(f"##### Fulfillment Performance by '{region_col_adv7}' and '{fulfilment_col_adv7}'")
+                                st.dataframe(regional_ff_summary.sort_values(by=[region_col_adv7, 'TotalRevenue'], ascending=[True, False]).head(30))
+
+                                # Plot AOV by fulfilment method for top N regions
+                                top_n_regions_adv7 = 5
+                                top_regions = ff_region_df.groupby(region_col_adv7)[amount_col_adv7].sum().nlargest(top_n_regions_adv7).index
+                                
+                                if not top_regions.empty:
+                                    plot_data_adv7 = regional_ff_summary[regional_ff_summary[region_col_adv7].isin(top_regions)]
+                                    if not plot_data_adv7.empty:
+                                        fig_ff_region, ax_ff_region = plt.subplots(figsize=(12,7))
+                                        sns.barplot(data=plot_data_adv7, x=region_col_adv7, y='AOV', hue=fulfilment_col_adv7, ax=ax_ff_region, order=top_regions)
+                                        ax_ff_region.set_title(f"Average Order Value (AOV) by Fulfillment & Region (Top {top_n_regions_adv7} Regions)")
+                                        plt.xticks(rotation=45, ha="right")
+                                        plt.tight_layout()
+                                        st.pyplot(fig_ff_region)
+                                    else:
+                                        st.info("Not enough data for plotting AOV for top regions.")
+                                else:
+                                    st.info("Not enough regions to plot.")
+                        except Exception as e:
+                            st.error(f"Error during Fulfillment Efficiency by Region analysis: {e}")
+            st.markdown("---")
+
+            # --- New Advanced Tool 8: B2B vs. B2C Sales Dynamics ---
+            with st.expander("🏢 B2B vs. B2C Sales Dynamics", expanded=False):
+                st.info("Deeper dive into B2B vs. B2C sales patterns (e.g., product preferences, AOV over time). Requires a B2B indicator column.")
+                all_cols_adv8 = df.columns.tolist()
+                numeric_cols_adv8 = get_numeric_columns(df)
+                date_cols_adv8 = date_cols
+                categorical_cols_adv8 = get_categorical_columns(df)
+
+                b2b_col_adv8 = st.selectbox("Select B2B indicator column (boolean/binary):", [None] + all_cols_adv8, index=([None] + all_cols_adv8).index('B2B') if 'B2B' in all_cols_adv8 else 0, key="adv8_b2b")
+                date_col_adv8 = st.selectbox("Select Date column:", date_cols_adv8, index=date_cols_adv8.index('Date') if 'Date' in date_cols_adv8 else 0, key="adv8_date")
+                amount_col_adv8 = st.selectbox("Select Sales Amount column:", numeric_cols_adv8, index=numeric_cols_adv8.index('Amount') if 'Amount' in numeric_cols_adv8 else 0, key="adv8_amount")
+                qty_col_adv8 = st.selectbox("Select Quantity Sold column:", numeric_cols_adv8, index=numeric_cols_adv8.index('Qty') if 'Qty' in numeric_cols_adv8 else 0, key="adv8_qty")
+                order_id_col_adv8 = st.selectbox("Select Order ID column:", all_cols_adv8, index=all_cols_adv8.index('Order ID') if 'Order ID' in all_cols_adv8 else 0, key="adv8_order_id")
+                product_level_col_adv8 = st.selectbox("Analyze product preference by (e.g., Category, SKU):", [None] + categorical_cols_adv8, index=([None] + categorical_cols_adv8).index('Category') if 'Category' in categorical_cols_adv8 else 0, key="adv8_product_level")
+                agg_freq_adv8 = st.selectbox("AOV trend aggregation:", ["M", "Q"], index=0, format_func=lambda x: {"M":"Monthly", "Q":"Quarterly"}[x], key="adv8_freq")
+
+                if st.button("💼 Analyze B2B vs. B2C Dynamics", key="adv8_run"):
+                    if not b2b_col_adv8 or b2b_col_adv8 not in df.columns:
+                        st.warning("Please select a valid B2B indicator column.")
+                    elif not all([date_col_adv8, amount_col_adv8, qty_col_adv8, order_id_col_adv8]):
+                        st.warning("Please select Date, Amount, Quantity, and Order ID columns.")
+                    else:
+                        try:
+                            b2b_df = df.copy()
+                            # Ensure B2B column is boolean-like
+                            if b2b_df[b2b_col_adv8].dtype == 'object':
+                                true_vals_adv8 = ['true', 'yes', '1', 'b2b']
+                                b2b_df['IsB2B_Processed'] = b2b_df[b2b_col_adv8].astype(str).str.lower().isin(true_vals_adv8)
+                            else:
+                                b2b_df['IsB2B_Processed'] = b2b_df[b2b_col_adv8].astype(bool)
+                            
+                            b2b_df[date_col_adv8] = pd.to_datetime(b2b_df[date_col_adv8], errors='coerce')
+                            b2b_df = b2b_df.dropna(subset=[date_col_adv8, amount_col_adv8, qty_col_adv8, order_id_col_adv8, 'IsB2B_Processed'])
+
+                            if b2b_df.empty:
+                                st.warning("No data for B2B/B2C analysis after filtering.")
+                            else:
+                                st.markdown("##### B2B vs. B2C Sales Dynamics")
+                                
+                                # AOV Trend
+                                b2b_df['TimePeriod'] = b2b_df[date_col_adv8].dt.to_period(agg_freq_adv8)
+                                aov_trend_b2b = b2b_df.groupby(['TimePeriod', 'IsB2B_Processed']).agg(
+                                    TotalRevenue=(amount_col_adv8, 'sum'),
+                                    UniqueOrders=(order_id_col_adv8, 'nunique')
+                                )
+                                aov_trend_b2b['AOV'] = aov_trend_b2b['TotalRevenue'] / aov_trend_b2b['UniqueOrders'].replace(0, np.nan)
+                                aov_plot_data = aov_trend_b2b['AOV'].unstack().rename(columns={True: 'B2B', False: 'B2C'})
+                                
+                                if not aov_plot_data.empty:
+                                    st.markdown(f"###### AOV Trend ({agg_freq_adv8}) for B2B vs. B2C")
+                                    st.line_chart(aov_plot_data.fillna(0))
+                                else:
+                                    st.info("Not enough data for AOV trend by B2B/B2C.")
+
+                                # Product Preferences
+                                if product_level_col_adv8 and product_level_col_adv8 in b2b_df.columns:
+                                    st.markdown(f"###### Top 5 {product_level_col_adv8} by Revenue for B2B vs. B2C")
+                                    top_products_b2b = b2b_df[b2b_df['IsB2B_Processed']].groupby(product_level_col_adv8)[amount_col_adv8].sum().nlargest(5)
+                                    top_products_b2c = b2b_df[~b2b_df['IsB2B_Processed']].groupby(product_level_col_adv8)[amount_col_adv8].sum().nlargest(5)
+                                    
+                                    col_b2b, col_b2c = st.columns(2)
+                                    with col_b2b:
+                                        st.write("B2B Top Products:")
+                                        st.dataframe(top_products_b2b)
+                                    with col_b2c:
+                                        st.write("B2C (Non-B2B) Top Products:")
+                                        st.dataframe(top_products_b2c)
+                                else:
+                                    st.info("Product level column not selected for preference analysis.")
+                        except Exception as e:
+                            st.error(f"Error during B2B vs. B2C Sales Dynamics analysis: {e}")
+            st.markdown("---")
+
+            # --- New Advanced Tool 9: Sales Seasonality Index by Category ---
+            with st.expander("📅 Sales Seasonality Index by Category", expanded=False):
+                st.info("Calculate and visualize a seasonality index for different product categories to understand periodic sales fluctuations.")
+                all_cols_adv9 = df.columns.tolist()
+                numeric_cols_adv9 = get_numeric_columns(df)
+                date_cols_adv9 = date_cols
+                categorical_cols_adv9 = get_categorical_columns(df)
+
+                date_col_adv9 = st.selectbox("Select Date column:", date_cols_adv9, index=date_cols_adv9.index('Date') if 'Date' in date_cols_adv9 else 0, key="adv9_date")
+                amount_col_adv9 = st.selectbox("Select Sales Amount column:", numeric_cols_adv9, index=numeric_cols_adv9.index('Amount') if 'Amount' in numeric_cols_adv9 else 0, key="adv9_amount")
+                category_col_adv9 = st.selectbox("Select Category column:", categorical_cols_adv9, index=categorical_cols_adv9.index('Category') if 'Category' in categorical_cols_adv9 else 0, key="adv9_category")
+                
+                if st.button("📈 Analyze Category Seasonality", key="adv9_run"):
+                    if not all([date_col_adv9, amount_col_adv9, category_col_adv9]):
+                        st.warning("Please select Date, Amount, and Category columns.")
+                    else:
+                        try:
+                            season_df = df[[date_col_adv9, amount_col_adv9, category_col_adv9]].copy()
+                            season_df[date_col_adv9] = pd.to_datetime(season_df[date_col_adv9], errors='coerce')
+                            season_df = season_df.dropna()
+
+                            if season_df.empty:
+                                st.warning("No data for seasonality analysis.")
+                            else:
+                                # Resample to monthly sales by category
+                                monthly_sales_cat = season_df.groupby([category_col_adv9, pd.Grouper(key=date_col_adv9, freq='M')])[amount_col_adv9].sum().reset_index()
+                                monthly_sales_cat['MonthOfYear'] = monthly_sales_cat[date_col_adv9].dt.month
+                                
+                                if monthly_sales_cat.empty:
+                                    st.warning("Not enough data after monthly aggregation.")
+                                else:
+                                    # Calculate average monthly sales for each category
+                                    avg_monthly_sales_overall = monthly_sales_cat.groupby(category_col_adv9)[amount_col_adv9].mean().reset_index()
+                                    avg_monthly_sales_overall = avg_monthly_sales_overall.rename(columns={amount_col_adv9: 'AvgOverallMonthlySales'})
+
+                                    # Calculate average sales for each specific month of the year, per category
+                                    avg_sales_by_month_cat = monthly_sales_cat.groupby([category_col_adv9, 'MonthOfYear'])[amount_col_adv9].mean().reset_index()
+                                    avg_sales_by_month_cat = avg_sales_by_month_cat.rename(columns={amount_col_adv9: 'AvgSalesForThisMonth'})
+
+                                    # Merge to calculate seasonality index
+                                    seasonality_index_df = pd.merge(avg_sales_by_month_cat, avg_monthly_sales_overall, on=category_col_adv9)
+                                    seasonality_index_df['SeasonalityIndex'] = (seasonality_index_df['AvgSalesForThisMonth'] / seasonality_index_df['AvgOverallMonthlySales'].replace(0, np.nan)) * 100
+                                    seasonality_index_df = seasonality_index_df.dropna(subset=['SeasonalityIndex'])
+                                    
+                                    st.markdown(f"##### Sales Seasonality Index by '{category_col_adv9}' (Index 100 = Average)")
+                                    
+                                    # Pivot for plotting
+                                    pivot_seasonality = seasonality_index_df.pivot_table(index='MonthOfYear', columns=category_col_adv9, values='SeasonalityIndex')
+                                    
+                                    if not pivot_seasonality.empty:
+                                        # Select top N categories by total sales for cleaner plot
+                                        top_n_cats_plot = 5
+                                        top_cats = season_df.groupby(category_col_adv9)[amount_col_adv9].sum().nlargest(top_n_cats_plot).index
+                                        
+                                        if not top_cats.empty and all(cat in pivot_seasonality.columns for cat in top_cats):
+                                            st.line_chart(pivot_seasonality[top_cats].fillna(100)) # Fill NA with 100 (avg) for plot
+                                            st.dataframe(pivot_seasonality[top_cats].head(12))
+                                        elif not pivot_seasonality.columns.empty: # Fallback if top_cats logic fails
+                                            st.line_chart(pivot_seasonality.iloc[:, :min(top_n_cats_plot, len(pivot_seasonality.columns))].fillna(100))
+                                            st.dataframe(pivot_seasonality.head(12))
+                                        else:
+                                            st.info("Not enough category data to plot seasonality index.")
+                                    else:
+                                        st.info("Could not compute seasonality index pivot table.")
+                        except Exception as e:
+                            st.error(f"Error during Sales Seasonality Index analysis: {e}")
+            st.markdown("---")
+
+            # --- New Advanced Tool 10: Promotion Effectiveness by Product Category ---
+            with st.expander("🎉 Promotion Effectiveness by Product Category", expanded=False):
+                st.info("Analyze if promotions are more effective for certain product categories by comparing AOV or Quantity lift for promoted vs. non-promoted items within those categories.")
+                all_cols_adv10 = df.columns.tolist()
+                numeric_cols_adv10 = get_numeric_columns(df)
+                categorical_cols_adv10 = get_categorical_columns(df)
+
+                promo_ids_col_adv10 = st.selectbox("Select Promotion IDs column:", all_cols_adv10, index=all_cols_adv10.index('promotion-ids') if 'promotion-ids' in all_cols_adv10 else 0, key="adv10_promo_ids")
+                amount_col_adv10 = st.selectbox("Select Sales Amount column:", numeric_cols_adv10, index=numeric_cols_adv10.index('Amount') if 'Amount' in numeric_cols_adv10 else 0, key="adv10_amount")
+                qty_col_adv10 = st.selectbox("Select Quantity Sold column:", numeric_cols_adv10, index=numeric_cols_adv10.index('Qty') if 'Qty' in numeric_cols_adv10 else 0, key="adv10_qty")
+                category_col_adv10 = st.selectbox("Select Category column:", categorical_cols_adv10, index=categorical_cols_adv10.index('Category') if 'Category' in categorical_cols_adv10 else 0, key="adv10_category")
+                order_id_col_adv10 = st.selectbox("Select Order ID column:", all_cols_adv10, index=all_cols_adv10.index('Order ID') if 'Order ID' in all_cols_adv10 else 0, key="adv10_order_id") # For AOV
+
+                if st.button("🚀 Analyze Promotion Effectiveness by Category", key="adv10_run"):
+                    if not all([promo_ids_col_adv10, amount_col_adv10, qty_col_adv10, category_col_adv10, order_id_col_adv10]):
+                        st.warning("Please select all required columns.")
+                    elif not df[promo_ids_col_adv10].isnull().all() == False and df[promo_ids_col_adv10].astype(str).str.strip().eq('').all() == False : # Check if promo col has data
+                        st.warning(f"The promotion ID column '{promo_ids_col_adv10}' seems to be empty or all NaNs. Cannot analyze promotion effectiveness.")
+                    else:
+                        try:
+                            promo_cat_df = df[[promo_ids_col_adv10, amount_col_adv10, qty_col_adv10, category_col_adv10, order_id_col_adv10]].copy()
+                            promo_cat_df['HasPromotion'] = ~promo_cat_df[promo_ids_col_adv10].isnull() & (promo_cat_df[promo_ids_col_adv10].astype(str).str.strip() != '')
+                            promo_cat_df = promo_cat_df.dropna(subset=[amount_col_adv10, qty_col_adv10, category_col_adv10, order_id_col_adv10])
+
+                            if promo_cat_df.empty:
+                                st.warning("No data for promotion effectiveness by category analysis.")
+                            elif not promo_cat_df['HasPromotion'].any():
+                                st.info("No items marked with promotions found in the selected data based on the Promotion IDs column.")
+                            else:
+                                # Calculate AOV and Avg Qty per Order, by Category and Promotion Status
+                                # This is item-level, so AOV here would be average item price.
+                                # For true AOV, would need to group by Order ID first.
+                                # Let's calculate average item price and average quantity for simplicity here.
+                                
+                                summary_promo_cat = promo_cat_df.groupby([category_col_adv10, 'HasPromotion']).agg(
+                                    AvgItemPrice=(amount_col_adv10, 'mean'),
+                                    AvgItemQty=(qty_col_adv10, 'mean'),
+                                    TotalRevenue=(amount_col_adv10, 'sum'),
+                                    TotalItems=(order_id_col_adv10, 'count') # Number of line items
+                                ).reset_index()
+                                
+                                # Pivot to compare Promoted vs. Non-Promoted side-by-side
+                                pivot_avg_price = summary_promo_cat.pivot_table(index=category_col_adv10, columns='HasPromotion', values='AvgItemPrice')
+                                if True in pivot_avg_price.columns and False in pivot_avg_price.columns: # Ensure both promo and non-promo exist
+                                    pivot_avg_price['PriceLiftRatio'] = (pivot_avg_price[True] / pivot_avg_price[False].replace(0,np.nan))
+                                    pivot_avg_price.columns = ['AvgPrice_NonPromo', 'AvgPrice_Promo', 'PriceLiftRatio_Promo']
+                                
+                                pivot_avg_qty = summary_promo_cat.pivot_table(index=category_col_adv10, columns='HasPromotion', values='AvgItemQty')
+                                if True in pivot_avg_qty.columns and False in pivot_avg_qty.columns:
+                                    pivot_avg_qty['QtyLiftRatio'] = (pivot_avg_qty[True] / pivot_avg_qty[False].replace(0,np.nan))
+                                    pivot_avg_qty.columns = ['AvgQty_NonPromo', 'AvgQty_Promo', 'QtyLiftRatio_Promo']
+
+                                st.markdown(f"##### Promotion Effectiveness by '{category_col_adv10}'")
+                                if not pivot_avg_price.empty:
+                                    st.markdown("###### Average Item Price Comparison (Promoted vs. Non-Promoted)")
+                                    st.dataframe(pivot_avg_price.dropna(subset=['PriceLiftRatio_Promo']).sort_values(by='PriceLiftRatio_Promo', ascending=False).head(15))
+                                else:
+                                    st.info("Not enough data to compare average item prices by promotion status within categories.")
+
+                                if not pivot_avg_qty.empty:
+                                    st.markdown("###### Average Item Quantity Comparison (Promoted vs. Non-Promoted)")
+                                    st.dataframe(pivot_avg_qty.dropna(subset=['QtyLiftRatio_Promo']).sort_values(by='QtyLiftRatio_Promo', ascending=False).head(15))
+                                else:
+                                    st.info("Not enough data to compare average item quantities by promotion status within categories.")
+
+                                # Top categories by revenue from promotions
+                                top_promo_revenue_cat = summary_promo_cat[summary_promo_cat['HasPromotion']].groupby(category_col_adv10)['TotalRevenue'].sum().nlargest(10)
+                                if not top_promo_revenue_cat.empty:
+                                    st.markdown("###### Top Categories by Revenue from Promoted Items")
+                                    st.bar_chart(top_promo_revenue_cat)
+
+                        except Exception as e:
+                            st.error(f"Error during Promotion Effectiveness by Category analysis: {e}")
+            st.markdown("---")
+
+
+        # Category 2: Machine Learning - Supervised (MLS)
+        with st.expander("🤖 Machine Learning - Supervised (MLS)"):
+            # Content for Supervised Machine Learning models will go here.
+            # The RFM analysis code previously here was a duplicate from Tab 1
+            # and caused an IndentationError. It has been removed.
+            st.info("Supervised learning tools will be added here in a future update. This section might include classification models (e.g., predicting high-value customers, likelihood to purchase specific categories) or regression models (e.g., predicting next purchase amount).")
+            pass # Placeholder for actual MLS content
+        # The following analysis blocks (Customer Churn Detection, Sales Forecasting,
+
+except FileNotFoundError:
+    st.error(f"🚨 Error: `{DATASET_FILENAME}` not found. Please make sure the file is in the same directory as `app.py`.")
+    st.stop()
+except pd.errors.EmptyDataError:
+    st.error(f"🚨 Error: `{DATASET_FILENAME}` is empty. Please provide a valid CSV file.")
+    st.stop()
+except Exception as e:
+    st.error(f"An unexpected error occurred during data loading or initial setup: {e}")
+                        st.error(f"Error during Repeat Purchase Analysis: {e}")
 
 
         # Category 2: Machine Learning - Supervised (MLS)
@@ -2322,4 +2923,3 @@ except pd.errors.EmptyDataError:
 except Exception as e:
     st.error(f"An unexpected error occurred during data loading or initial setup: {e}")
     st.stop()
-
