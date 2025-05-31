@@ -2301,9 +2301,9 @@ try:
                             else:
                                 st.info("Not enough data to generate a cohort retention matrix.")
 
-                    except Exception as e:
+                    except Exception as e: # This is the end of FOM 8's try-except
                         st.error(f"Error during Repeat Purchase Analysis: {e}")
-            st.markdown("---")
+        st.markdown("---") # This markdown is now correctly AFTER the FOM expander
 
             # --- New Advanced Tool 1: ABC Analysis for Product Prioritization ---
             with st.expander("🥇 ABC Analysis for Product Prioritization", expanded=False):
@@ -2884,7 +2884,7 @@ try:
                         except Exception as e:
                             st.error(f"Error during Promotion Effectiveness by Category analysis: {e}")
             st.markdown("---")
-        # Category 2: Machine Learning - Supervised (MLS)
+        # This was the end of the 10 new tools. Now the MLS expander follows at the correct indentation.
         with st.expander("🤖 Machine Learning - Supervised (MLS)"):
             # Content for Supervised Machine Learning models will go here.
             # The RFM analysis code previously here was a duplicate from Tab 1
