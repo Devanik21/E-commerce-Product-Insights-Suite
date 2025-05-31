@@ -1962,6 +1962,348 @@ try:
                                 st.info(f"No data for {fulfilment_col_fom3} vs {category_col_fom3} breakdown.")
                     except Exception as e:
                         st.error(f"Error during fulfilment method analysis: {e}")
+            st.markdown("---")
+
+            # FOM 4: Payment Method Analysis
+            st.subheader("FOM 4: Payment Method Analysis")
+            st.markdown("Analyze sales performance across different payment methods. Requires a column identifying payment type, along with sales amount and order ID.")
+
+            all_cols_fom4 = df.columns.tolist()
+            numeric_cols_fom4 = get_numeric_columns(df)
+            categorical_cols_fom4 = get_categorical_columns(df)
+            date_cols_fom4 = date_cols
+
+            payment_col_fom4 = st.selectbox("Select Payment Method column (Categorical):", [None] + categorical_cols_fom4, key="fom4_payment_method")
+            amount_col_fom4 = st.selectbox("Select Sales Amount column:", numeric_cols_fom4, index=numeric_cols_fom4.index('Amount') if 'Amount' in numeric_cols_fom4 else 0, key="fom4_amount")
+            order_id_col_fom4 = st.selectbox("Select Order ID column:", all_cols_fom4, index=all_cols_fom4.index('Order ID') if 'Order ID' in all_cols_fom4 else 0, key="fom4_order_id")
+            date_col_fom4 = st.selectbox("Select Date column (for trends):", date_cols_fom4 if date_cols_fom4 else all_cols_fom4, index=date_cols_fom4.index('Date') if 'Date' in date_cols_fom4 else 0, key="fom4_date")
+            aggregation_freq_fom4 = st.selectbox("Aggregate trend by:", ["W", "M", "Q"], index=1, format_func=lambda x: {"W":"Weekly", "M":"Monthly", "Q":"Quarterly"}[x], key="fom4_freq")
+
+            if st.button("💳 Analyze Payment Methods", key="fom4_run"):
+                if not all([payment_col_fom4, amount_col_fom4, order_id_col_fom4, date_col_fom4]):
+                    st.warning("Please select Payment Method, Amount, Order ID, and Date columns.")
+                elif payment_col_fom4 not in df.columns:
+                    st.warning(f"Selected Payment Method column '{payment_col_fom4}' not found in the dataset.")
+                else:
+                    try:
+                        fom4_df = df[[payment_col_fom4, amount_col_fom4, order_id_col_fom4, date_col_fom4]].copy()
+                        fom4_df[date_col_fom4] = pd.to_datetime(fom4_df[date_col_fom4], errors='coerce')
+                        fom4_df = fom4_df.dropna()
+
+                        if fom4_df.empty:
+                            st.warning("No data available for payment method analysis after filtering.")
+                        else:
+                            st.markdown(f"##### Payment Method Performance ('{payment_col_fom4}')")
+
+                            payment_summary = fom4_df.groupby(payment_col_fom4).agg(
+                                TotalRevenue=(amount_col_fom4, 'sum'),
+                                NumberOfOrders=(order_id_col_fom4, 'nunique'),
+                            ).sort_values(by='TotalRevenue', ascending=False)
+                            payment_summary['AverageOrderValue'] = payment_summary['TotalRevenue'] / payment_summary['NumberOfOrders']
+                            
+                            st.markdown("###### Overall Performance by Payment Method")
+                            st.dataframe(payment_summary)
+
+                            fig_fom4_rev, ax_fom4_rev = plt.subplots()
+                            payment_summary['TotalRevenue'].plot(kind='bar', ax=ax_fom4_rev)
+                            ax_fom4_rev.set_title(f'Total Revenue by {payment_col_fom4}')
+                            ax_fom4_rev.set_ylabel('Total Revenue')
+                            plt.xticks(rotation=45, ha="right")
+                            plt.tight_layout()
+                            st.pyplot(fig_fom4_rev)
+
+                            st.markdown(f"###### AOV Trend by {payment_col_fom4}")
+                            fom4_df['time_period'] = fom4_df[date_col_fom4].dt.to_period(aggregation_freq_fom4)
+                            aov_trend_fom4 = fom4_df.groupby(['time_period', payment_col_fom4]).agg(
+                                TotalRevenue=(amount_col_fom4, 'sum'),
+                                UniqueOrders=(order_id_col_fom4, 'nunique')
+                            )
+                            aov_trend_fom4['AOV'] = aov_trend_fom4['TotalRevenue'] / aov_trend_fom4['UniqueOrders']
+                            aov_trend_plot_fom4 = aov_trend_fom4['AOV'].unstack().fillna(0)
+                            if not aov_trend_plot_fom4.empty:
+                                st.line_chart(aov_trend_plot_fom4)
+                            else:
+                                st.info("No AOV trend data to display for payment methods.")
+
+                    except Exception as e:
+                        st.error(f"Error during Payment Method Analysis: {e}")
+            st.markdown("---")
+
+            # FOM 5: Customer Lifetime Value (CLV) Estimation (Simplified)
+            st.subheader("FOM 5: Customer Lifetime Value (CLV) Estimation (Simplified)")
+            st.markdown("Estimate CLV using historical purchase data. Requires a Customer ID (or proxy), Order Date, and Amount.")
+            
+            all_cols_fom5 = df.columns.tolist()
+            numeric_cols_fom5 = get_numeric_columns(df)
+            date_cols_fom5 = date_cols
+
+            # Using 'Order ID' as a proxy for Customer ID if no dedicated Customer ID exists.
+            # This is a simplification; true CLV needs a stable Customer ID.
+            customer_id_col_fom5 = st.selectbox("Select Customer ID column (or 'Order ID' as proxy):", all_cols_fom5, index=all_cols_fom5.index('Order ID') if 'Order ID' in all_cols_fom5 else 0, key="fom5_customer_id")
+            date_col_fom5 = st.selectbox("Select Order Date column:", date_cols_fom5 if date_cols_fom5 else all_cols_fom5, index=date_cols_fom5.index('Date') if 'Date' in date_cols_fom5 else 0, key="fom5_date")
+            amount_col_fom5 = st.selectbox("Select Sales Amount column:", numeric_cols_fom5, index=numeric_cols_fom5.index('Amount') if 'Amount' in numeric_cols_fom5 else 0, key="fom5_amount")
+
+            if st.button("💖 Estimate Simplified CLV", key="fom5_run"):
+                if not all([customer_id_col_fom5, date_col_fom5, amount_col_fom5]):
+                    st.warning("Please select Customer ID, Order Date, and Amount columns.")
+                else:
+                    try:
+                        fom5_df = df[[customer_id_col_fom5, date_col_fom5, amount_col_fom5]].copy()
+                        fom5_df[date_col_fom5] = pd.to_datetime(fom5_df[date_col_fom5], errors='coerce')
+                        fom5_df = fom5_df.dropna()
+
+                        if fom5_df.empty:
+                            st.warning("No data available for CLV estimation after filtering.")
+                        else:
+                            st.markdown("##### Simplified CLV Estimation Results")
+                            
+                            customer_summary = fom5_df.groupby(customer_id_col_fom5).agg(
+                                TotalSpent=(amount_col_fom5, 'sum'),
+                                FirstPurchaseDate=(date_col_fom5, 'min'),
+                                LastPurchaseDate=(date_col_fom5, 'max'),
+                                NumberOfPurchases=(date_col_fom5, 'count') # Count of transactions/items
+                            )
+                            customer_summary['CustomerLifespanDays'] = (customer_summary['LastPurchaseDate'] - customer_summary['FirstPurchaseDate']).dt.days
+                            # For customers with only one purchase, lifespan is 0. Consider adding 1 day or specific handling.
+                            customer_summary.loc[customer_summary['NumberOfPurchases'] == 1, 'CustomerLifespanDays'] = 1
+
+                            avg_clv = customer_summary['TotalSpent'].mean()
+                            avg_purchase_freq = customer_summary['NumberOfPurchases'].mean()
+                            avg_lifespan_days = customer_summary[customer_summary['CustomerLifespanDays'] > 0]['CustomerLifespanDays'].mean() # Exclude 0-day lifespans for avg
+
+                            st.metric("Average Simplified CLV (Total Spend per Customer)", f"{avg_clv:,.2f}")
+                            st.metric("Average Purchase Frequency (Transactions per Customer)", f"{avg_purchase_freq:,.2f}")
+                            st.metric("Average Customer Lifespan (Days with Activity)", f"{avg_lifespan_days:,.2f} days" if pd.notna(avg_lifespan_days) else "N/A (mostly single purchases)")
+
+                            st.markdown("###### Distribution of Total Spend per Customer")
+                            fig_fom5_spend, ax_fom5_spend = plt.subplots()
+                            sns.histplot(customer_summary['TotalSpent'], kde=True, ax=ax_fom5_spend, bins=30)
+                            ax_fom5_spend.set_title("Distribution of Total Spend per Customer")
+                            ax_fom5_spend.set_xlabel("Total Spend")
+                            st.pyplot(fig_fom5_spend)
+
+                            st.markdown("###### Top Customers by Total Spend")
+                            st.dataframe(customer_summary.sort_values(by='TotalSpent', ascending=False).head(10))
+                            st.caption(f"Note: If '{customer_id_col_fom5}' is 'Order ID', this represents spend per order, not per unique customer.")
+
+                    except Exception as e:
+                        st.error(f"Error during Simplified CLV Estimation: {e}")
+            st.markdown("---")
+
+            # FOM 6: COGS & Profit Margin Analysis (Conceptual)
+            st.subheader("FOM 6: COGS & Profit Margin Analysis (Conceptual)")
+            st.markdown("Estimate gross profit and margin. Requires 'Amount' and ideally a 'COGS' column or an average margin input.")
+
+            all_cols_fom6 = df.columns.tolist()
+            numeric_cols_fom6 = get_numeric_columns(df)
+            
+            amount_col_fom6 = st.selectbox("Select Sales Amount column:", numeric_cols_fom6, index=numeric_cols_fom6.index('Amount') if 'Amount' in numeric_cols_fom6 else 0, key="fom6_amount")
+            sku_col_fom6 = st.selectbox("Select Product ID/SKU column:", all_cols_fom6, index=all_cols_fom6.index('SKU') if 'SKU' in all_cols_fom6 else 0, key="fom6_sku")
+            
+            cogs_option_fom6 = st.radio("COGS Input Method:", ["Select COGS Column (if available)", "Input Average Gross Margin %"], key="fom6_cogs_option")
+            cogs_col_fom6 = None
+            avg_margin_fom6 = None
+
+            if cogs_option_fom6 == "Select COGS Column (if available)":
+                cogs_col_fom6 = st.selectbox("Select COGS column:", [None] + numeric_cols_fom6, key="fom6_cogs_col")
+            else:
+                avg_margin_fom6 = st.slider("Average Gross Margin (%) for estimation:", 0, 100, 30, key="fom6_avg_margin")
+
+            if st.button("💹 Analyze Profitability (Conceptual)", key="fom6_run"):
+                if not amount_col_fom6 or not sku_col_fom6:
+                    st.warning("Please select Amount and SKU columns.")
+                elif cogs_option_fom6 == "Select COGS Column (if available)" and not cogs_col_fom6:
+                    st.warning("Please select a COGS column or choose to input average margin.")
+                else:
+                    try:
+                        fom6_df = df[[sku_col_fom6, amount_col_fom6]].copy()
+                        if cogs_col_fom6 and cogs_col_fom6 in df.columns:
+                            fom6_df['COGS'] = df[cogs_col_fom6]
+                        elif avg_margin_fom6 is not None:
+                            fom6_df['COGS'] = fom6_df[amount_col_fom6] * (1 - (avg_margin_fom6 / 100.0))
+                        else:
+                            st.error("COGS data or average margin not provided.")
+                            st.stop()
+                        
+                        fom6_df = fom6_df.dropna(subset=[amount_col_fom6, 'COGS'])
+                        fom6_df['GrossProfit'] = fom6_df[amount_col_fom6] - fom6_df['COGS']
+                        fom6_df['GrossMarginPercentage'] = (fom6_df['GrossProfit'] / fom6_df[amount_col_fom6].replace(0, np.nan)) * 100
+                        fom6_df = fom6_df.dropna(subset=['GrossMarginPercentage'])
+
+                        if fom6_df.empty:
+                            st.warning("No data available for profitability analysis after calculations.")
+                        else:
+                            st.markdown("##### Conceptual Profitability Analysis Results")
+                            
+                            overall_gross_profit = fom6_df['GrossProfit'].sum()
+                            overall_revenue = fom6_df[amount_col_fom6].sum()
+                            overall_margin = (overall_gross_profit / overall_revenue) * 100 if overall_revenue else 0
+
+                            st.metric("Estimated Total Gross Profit", f"{overall_gross_profit:,.2f}")
+                            st.metric("Estimated Overall Gross Margin", f"{overall_margin:,.2f}%")
+
+                            st.markdown(f"###### Top 10 Products by Estimated Gross Profit (based on '{sku_col_fom6}')")
+                            product_profit = fom6_df.groupby(sku_col_fom6).agg(
+                                TotalRevenue=(amount_col_fom6, 'sum'),
+                                TotalCOGS=('COGS', 'sum'),
+                                TotalGrossProfit=('GrossProfit', 'sum')
+                            ).sort_values(by='TotalGrossProfit', ascending=False)
+                            product_profit['AverageMargin'] = (product_profit['TotalGrossProfit'] / product_profit['TotalRevenue'].replace(0,np.nan)) * 100
+                            st.dataframe(product_profit.head(10))
+
+                            fig_fom6_profit, ax_fom6_profit = plt.subplots()
+                            product_profit['TotalGrossProfit'].head(10).plot(kind='bar', ax=ax_fom6_profit)
+                            ax_fom6_profit.set_title(f'Top 10 {sku_col_fom6} by Estimated Gross Profit')
+                            ax_fom6_profit.set_ylabel('Estimated Gross Profit')
+                            plt.xticks(rotation=45, ha="right")
+                            plt.tight_layout()
+                            st.pyplot(fig_fom6_profit)
+
+                    except Exception as e:
+                        st.error(f"Error during Conceptual Profitability Analysis: {e}")
+            st.markdown("---")
+
+            # FOM 7: Order Cancellation Rate Analysis
+            st.subheader("FOM 7: Order Cancellation Rate Analysis")
+            st.markdown("Analyze the rate of cancelled orders. Requires 'Order ID', 'Status', and 'Date' columns. Define which status values indicate a cancellation.")
+
+            all_cols_fom7 = df.columns.tolist()
+            date_cols_fom7 = date_cols
+
+            order_id_col_fom7 = st.selectbox("Select Order ID column:", all_cols_fom7, index=all_cols_fom7.index('Order ID') if 'Order ID' in all_cols_fom7 else 0, key="fom7_order_id")
+            status_col_fom7 = st.selectbox("Select Order Status column:", all_cols_fom7, index=all_cols_fom7.index('Status') if 'Status' in all_cols_fom7 else 0, key="fom7_status")
+            date_col_fom7 = st.selectbox("Select Date column:", date_cols_fom7 if date_cols_fom7 else all_cols_fom7, index=date_cols_fom7.index('Date') if 'Date' in date_cols_fom7 else 0, key="fom7_date")
+            
+            # Dynamically get status values for multiselect
+            available_statuses_fom7 = df[status_col_fom7].dropna().unique().tolist() if status_col_fom7 and status_col_fom7 in df.columns else []
+            default_cancelled_statuses = [s for s in ['Cancelled', 'Shipped - Returned to Seller'] if s in available_statuses_fom7]
+            cancelled_statuses_fom7 = st.multiselect("Select status values that indicate cancellation:", available_statuses_fom7, default=default_cancelled_statuses, key="fom7_cancelled_statuses")
+            aggregation_freq_fom7 = st.selectbox("Aggregate cancellation trend by:", ["D", "W", "M"], index=1, format_func=lambda x: {"D":"Daily", "W":"Weekly", "M":"Monthly"}[x], key="fom7_freq")
+
+            if st.button("🚫 Analyze Cancellation Rate", key="fom7_run"):
+                if not all([order_id_col_fom7, status_col_fom7, date_col_fom7]):
+                    st.warning("Please select Order ID, Status, and Date columns.")
+                elif not cancelled_statuses_fom7:
+                    st.warning("Please select at least one status value that indicates cancellation.")
+                else:
+                    try:
+                        fom7_df = df[[order_id_col_fom7, status_col_fom7, date_col_fom7]].copy()
+                        fom7_df[date_col_fom7] = pd.to_datetime(fom7_df[date_col_fom7], errors='coerce')
+                        fom7_df = fom7_df.dropna()
+
+                        if fom7_df.empty:
+                            st.warning("No data available for cancellation analysis after filtering.")
+                        else:
+                            fom7_df['IsCancelled'] = fom7_df[status_col_fom7].isin(cancelled_statuses_fom7)
+                            
+                            # Assuming each row with a unique Order ID is one order. If Order ID can repeat for items, this needs adjustment.
+                            # For this dataset, Order ID is unique per row, so we treat each row as an order for status.
+                            total_orders = fom7_df[order_id_col_fom7].nunique()
+                            cancelled_orders = fom7_df[fom7_df['IsCancelled']][order_id_col_fom7].nunique()
+                            cancellation_rate = (cancelled_orders / total_orders) * 100 if total_orders > 0 else 0
+
+                            st.markdown("##### Order Cancellation Analysis Results")
+                            st.metric("Overall Cancellation Rate", f"{cancellation_rate:.2f}% ({cancelled_orders}/{total_orders} orders)")
+
+                            st.markdown("###### Cancellation Rate Over Time")
+                            fom7_df['time_period'] = fom7_df[date_col_fom7].dt.to_period(aggregation_freq_fom7)
+                            cancellation_trend = fom7_df.groupby('time_period').agg(
+                                TotalOrders=(order_id_col_fom7, 'nunique'),
+                                CancelledOrders=('IsCancelled', lambda x: x.astype(int).sum()) # Sum of True values
+                            )
+                            cancellation_trend['CancellationRate'] = (cancellation_trend['CancelledOrders'] / cancellation_trend['TotalOrders'].replace(0,np.nan)) * 100
+                            
+                            if not cancellation_trend.empty:
+                                st.line_chart(cancellation_trend['CancellationRate'].fillna(0))
+                                st.dataframe(cancellation_trend.head(10))
+                            else:
+                                st.info("No data for cancellation rate trend.")
+
+                            st.markdown(f"###### Breakdown by Status (within selected '{status_col_fom7}')")
+                            status_counts = fom7_df[status_col_fom7].value_counts()
+                            st.bar_chart(status_counts)
+
+                    except Exception as e:
+                        st.error(f"Error during Order Cancellation Rate Analysis: {e}")
+            st.markdown("---")
+
+            # FOM 8: Repeat Purchase Rate & Cohort Analysis (Simplified)
+            st.subheader("FOM 8: Repeat Purchase Rate & Cohort Analysis (Simplified)")
+            st.markdown("Analyze customer repeat purchase behavior. Requires Customer ID (or proxy) and Order Date.")
+
+            all_cols_fom8 = df.columns.tolist()
+            date_cols_fom8 = date_cols
+
+            customer_id_col_fom8 = st.selectbox("Select Customer ID column (or 'Order ID' as proxy):", all_cols_fom8, index=all_cols_fom8.index('Order ID') if 'Order ID' in all_cols_fom8 else 0, key="fom8_customer_id")
+            date_col_fom8 = st.selectbox("Select Order Date column:", date_cols_fom8 if date_cols_fom8 else all_cols_fom8, index=date_cols_fom8.index('Date') if 'Date' in date_cols_fom8 else 0, key="fom8_date")
+
+            if st.button("🔁 Analyze Repeat Purchases", key="fom8_run"):
+                if not all([customer_id_col_fom8, date_col_fom8]):
+                    st.warning("Please select Customer ID and Order Date columns.")
+                else:
+                    try:
+                        fom8_df = df[[customer_id_col_fom8, date_col_fom8]].copy()
+                        fom8_df[date_col_fom8] = pd.to_datetime(fom8_df[date_col_fom8], errors='coerce')
+                        fom8_df = fom8_df.dropna().sort_values(by=[customer_id_col_fom8, date_col_fom8])
+
+                        if fom8_df.empty:
+                            st.warning("No data available for repeat purchase analysis.")
+                        else:
+                            st.markdown("##### Simplified Repeat Purchase & Cohort Analysis")
+
+                            # Calculate number of purchases per customer
+                            purchase_counts = fom8_df.groupby(customer_id_col_fom8).size() # .size() gives count of rows (purchases)
+                            
+                            total_customers = purchase_counts.count()
+                            repeat_customers = purchase_counts[purchase_counts > 1].count()
+                            repeat_purchase_rate = (repeat_customers / total_customers) * 100 if total_customers > 0 else 0
+
+                            st.metric("Total Unique Customers/Entities", total_customers)
+                            st.metric("Customers with >1 Purchase", repeat_customers)
+                            st.metric("Overall Repeat Purchase Rate", f"{repeat_purchase_rate:.2f}%")
+
+                            st.markdown("###### Distribution of Number of Purchases per Customer")
+                            fig_fom8_counts, ax_fom8_counts = plt.subplots()
+                            # Cap display for readability if many single purchases
+                            display_purchase_counts = purchase_counts[purchase_counts <= purchase_counts.quantile(0.95) if purchase_counts.quantile(0.95) > 1 else 10] 
+                            sns.histplot(display_purchase_counts, discrete=True, ax=ax_fom8_counts)
+                            ax_fom8_counts.set_title("Distribution of Purchase Counts (capped for display)")
+                            ax_fom8_counts.set_xlabel("Number of Purchases")
+                            st.pyplot(fig_fom8_counts)
+
+                            # Simplified Cohort: First purchase month
+                            fom8_df['PurchaseMonth'] = fom8_df[date_col_fom8].dt.to_period('M')
+                            fom8_df['CohortMonth'] = fom8_df.groupby(customer_id_col_fom8)['PurchaseMonth'].transform('min')
+                            
+                            def get_cohort_period(df_cohort, event_month_col='PurchaseMonth', cohort_month_col='CohortMonth'):
+                                df_cohort['CohortPeriod'] = (df_cohort[event_month_col].dt.year - df_cohort[cohort_month_col].dt.year) * 12 + \
+                                                          (df_cohort[event_month_col].dt.month - df_cohort[cohort_month_col].dt.month)
+                                return df_cohort
+
+                            fom8_df = get_cohort_period(fom8_df)
+                            
+                            cohort_data = fom8_df.groupby(['CohortMonth', 'CohortPeriod'])[customer_id_col_fom8].nunique().reset_index()
+                            cohort_pivot = cohort_data.pivot_table(index='CohortMonth', columns='CohortPeriod', values=customer_id_col_fom8)
+                            
+                            cohort_sizes = cohort_pivot.iloc[:, 0]
+                            retention_matrix = cohort_pivot.divide(cohort_sizes, axis=0) * 100
+
+                            st.markdown("###### Simplified Monthly Cohort Retention (%)")
+                            if not retention_matrix.empty:
+                                fig_fom8_cohort, ax_fom8_cohort = plt.subplots(figsize=(10, max(6, len(retention_matrix)*0.4)))
+                                sns.heatmap(retention_matrix, annot=True, fmt='.1f', cmap='viridis', ax=ax_fom8_cohort)
+                                ax_fom8_cohort.set_title('Monthly Cohort Retention (Customers Active in Period N after First Purchase)')
+                                ax_fom8_cohort.set_xlabel('Months Since First Purchase (Period)')
+                                ax_fom8_cohort.set_ylabel('Cohort (First Purchase Month)')
+                                plt.tight_layout()
+                                st.pyplot(fig_fom8_cohort)
+                                st.caption(f"Note: If '{customer_id_col_fom8}' is 'Order ID', this cohort analysis is per order, not unique customer.")
+                            else:
+                                st.info("Not enough data to generate a cohort retention matrix.")
+
+                    except Exception as e:
+                        st.error(f"Error during Repeat Purchase Analysis: {e}")
+
 
         # Category 2: Machine Learning - Supervised (MLS)
         with st.expander("🤖 Machine Learning - Supervised (MLS)"):
