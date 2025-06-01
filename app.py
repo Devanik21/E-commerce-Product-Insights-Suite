@@ -10,7 +10,7 @@ from sklearn.ensemble import IsolationForest
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import StandardScaler
 import google.generativeai as genai
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split # Already here
 from sklearn.metrics import classification_report, confusion_matrix
 
 # Imports for potential advanced analytics tools (some may be placeholders)
@@ -20,6 +20,7 @@ import statsmodels.api as sm
 from statsmodels.formula.api import logit
 from statsmodels.tsa.seasonal import seasonal_decompose
 from statsmodels.tsa.arima.model import ARIMA
+from sklearn.ensemble import RandomForestClassifier # Added for new MLS tool
 # import networkx as nx # For graph analysis
 # import plotly.express as px # For advanced interactive visualizations
 from lifelines import KaplanMeierFitter
@@ -2886,11 +2887,93 @@ try:
         st.markdown("---")
         # This was the end of the 10 new tools. Now the MLS expander follows at the correct indentation.
         with st.expander("🤖 Machine Learning - Supervised (MLS)"):
-            # Content for Supervised Machine Learning models will go here.
-            # The RFM analysis code previously here was a duplicate from Tab 1
-            # and caused an IndentationError. It has been removed.
-            st.info("Supervised learning tools will be added here in a future update. This section might include classification models (e.g., predicting high-value customers, likelihood to purchase specific categories) or regression models (e.g., predicting next purchase amount).")
-            pass # Placeholder for actual MLS content
+            st.subheader("🎯 Transaction B2B Status Prediction")
+            st.info("Train a model to predict if a transaction is B2B based on its features. Select your features and the target B2B column.")
+
+            all_cols_mls1 = df.columns.tolist()
+            numeric_cols_mls1 = get_numeric_columns(df)
+            # For features, allow selection from numeric and lower-cardinality categorical
+            categorical_features_mls1 = get_categorical_columns(df, nunique_threshold=50) 
+
+            # Target column selection - should be a binary column like 'B2B'
+            # Default to 'B2B' if it exists and seems appropriate (boolean or 2 unique values)
+            default_target_mls1_index = 0
+            if 'B2B' in all_cols_mls1 and (df['B2B'].dtype == 'bool' or df['B2B'].nunique() <= 2):
+                default_target_mls1_index = all_cols_mls1.index('B2B')
+            
+            target_col_mls1 = st.selectbox("Select Target Column (Binary - e.g., 'B2B'):", 
+                                           all_cols_mls1, 
+                                           index=default_target_mls1_index, 
+                                           key="mls1_target")
+
+            available_features_mls1 = [col for col in numeric_cols_mls1 + categorical_features_mls1 if col != target_col_mls1]
+            # Sensible defaults for features, excluding ID-like columns and the target
+            default_features_mls1 = [f for f in ['Amount', 'Qty', 'Category', 'Sales Channel', 'Fulfilment', 'ship-state'] if f in available_features_mls1]
+            
+            selected_features_mls1 = st.multiselect("Select Feature Columns:", 
+                                                    available_features_mls1, 
+                                                    default=default_features_mls1, 
+                                                    key="mls1_features")
+
+            if st.button("🚀 Train B2B Prediction Model", key="mls1_run"):
+                if not target_col_mls1 or not selected_features_mls1:
+                    st.warning("Please select a target column and at least one feature column.")
+                elif df[target_col_mls1].nunique() > 2 :
+                    st.warning(f"Target column '{target_col_mls1}' must be binary (have 2 unique values). It has {df[target_col_mls1].nunique()}.")
+                else:
+                    try:
+                        mls1_X = df[selected_features_mls1].copy()
+                        # Process target: ensure it's 0/1
+                        if df[target_col_mls1].dtype == 'bool':
+                            mls1_y = df[target_col_mls1].astype(int)
+                        else: # Attempt to map if it's not bool but has 2 unique values
+                            unique_vals = df[target_col_mls1].dropna().unique()
+                            if len(unique_vals) == 2:
+                                st.info(f"Mapping target '{target_col_mls1}': {unique_vals[0]} -> 0, {unique_vals[1]} -> 1")
+                                mls1_y = df[target_col_mls1].map({unique_vals[0]: 0, unique_vals[1]: 1})
+                            else: # Should have been caught by nunique check, but as a safeguard
+                                st.error(f"Target column '{target_col_mls1}' could not be converted to binary 0/1.")
+                                st.stop()
+                        
+                        mls1_X = mls1_X.loc[mls1_y.dropna().index] # Align X with y after potential NA drop from y mapping
+                        mls1_y = mls1_y.dropna()
+
+                        # Preprocessing: Impute NaNs and One-Hot Encode
+                        for col in mls1_X.select_dtypes(include=np.number).columns:
+                            mls1_X[col] = mls1_X[col].fillna(mls1_X[col].median())
+                        for col in mls1_X.select_dtypes(include='object').columns:
+                            mls1_X[col] = mls1_X[col].fillna(mls1_X[col].mode()[0] if not mls1_X[col].mode().empty else 'Unknown')
+                        
+                        mls1_X_processed = pd.get_dummies(mls1_X, drop_first=True, dummy_na=False)
+
+                        if mls1_X_processed.empty or mls1_y.empty():
+                            st.error("Not enough data after preprocessing for model training.")
+                        else:
+                            X_train, X_test, y_train, y_test = train_test_split(mls1_X_processed, mls1_y, test_size=0.3, random_state=42, stratify=mls1_y)
+                            
+                            model_rf = RandomForestClassifier(random_state=42, n_estimators=100, class_weight='balanced')
+                            model_rf.fit(X_train, y_train)
+                            y_pred = model_rf.predict(X_test)
+
+                            st.markdown("##### Model Performance (Random Forest Classifier)")
+                            st.text("Classification Report:")
+                            st.text(classification_report(y_test, y_pred, zero_division=0))
+
+                            st.text("Confusion Matrix:")
+                            cm_fig, ax_cm = plt.subplots()
+                            sns.heatmap(confusion_matrix(y_test, y_pred), annot=True, fmt='d', cmap='Blues', ax=ax_cm)
+                            ax_cm.set_xlabel('Predicted')
+                            ax_cm.set_ylabel('Actual')
+                            st.pyplot(cm_fig)
+
+                            st.markdown("###### Feature Importances")
+                            importances = pd.Series(model_rf.feature_importances_, index=X_train.columns).sort_values(ascending=False)
+                            st.bar_chart(importances.head(15)) # Show top 15 features
+                            st.dataframe(importances.reset_index().rename(columns={'index':'Feature', 0:'Importance'}).head(20))
+
+                    except Exception as e:
+                        st.error(f"An error occurred during model training: {e}")
+                        st.error("Ensure your target column is binary (e.g., True/False, 0/1, or two distinct categories like 'Yes'/'No').")
         # The following analysis blocks (Customer Churn Detection, Sales Forecasting,
 
 except FileNotFoundError:
@@ -2902,4 +2985,3 @@ except pd.errors.EmptyDataError:
 except Exception as e:
     st.error(f"An unexpected error occurred during data loading or initial setup: {e}")
     st.stop()
-
