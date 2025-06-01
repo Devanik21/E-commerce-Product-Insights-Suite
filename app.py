@@ -26,6 +26,8 @@ from sklearn.ensemble import RandomForestClassifier # Added for new MLS tool
 from lifelines import KaplanMeierFitter
 import pymc as pm
 import arviz as az
+from mlxtend.frequent_patterns import apriori, association_rules
+from mlxtend.preprocessing import TransactionEncoder
 # import shap # For model interpretability
 # from gensim.models import LdaModel # For topic modeling
 # # import tensorflow as tf # For deep learning (conceptual)
@@ -1663,6 +1665,56 @@ try:
                                 st.dataframe(trend_data_pspa3.head(20))
                     except Exception as e:
                         st.error(f"Error during sales trend by attribute analysis: {e}")
+
+            st.markdown("---")
+            # PSPA 4: Market Basket Analysis (Product Co-purchase)
+            st.subheader("PSPA 4: Market Basket Analysis (Product Co-purchase)")
+            st.markdown("Discover which specific products (SKUs/ASINs) are frequently bought together. This uses the Apriori algorithm for association rule mining.")
+
+            all_cols_pspa4 = df.columns.tolist()
+
+            order_id_col_pspa4 = st.selectbox("Select Order ID column:", all_cols_pspa4, index=all_cols_pspa4.index('Order ID') if 'Order ID' in all_cols_pspa4 else 0, key="pspa4_order_id")
+            item_id_col_pspa4 = st.selectbox("Select Product/Item ID column (e.g., SKU, ASIN):", all_cols_pspa4, index=all_cols_pspa4.index('SKU') if 'SKU' in all_cols_pspa4 else (all_cols_pspa4.index('ASIN') if 'ASIN' in all_cols_pspa4 else 0), key="pspa4_item_id")
+            
+            min_support_pspa4 = st.slider("Minimum Support for itemsets:", 0.001, 0.1, 0.01, 0.001, format="%.3f", key="pspa4_min_support", help="Minimum proportion of transactions an itemset must appear in.")
+            min_confidence_pspa4 = st.slider("Minimum Confidence for rules:", 0.1, 1.0, 0.2, 0.05, key="pspa4_min_confidence", help="Likelihood that item Y is purchased when item X is purchased (for rule X->Y).")
+
+            if st.button("🧺 Run Market Basket Analysis", key="pspa4_run"):
+                if not order_id_col_pspa4 or not item_id_col_pspa4:
+                    st.warning("Please select both Order ID and Item ID columns.")
+                else:
+                    try:
+                        mba_df = df[[order_id_col_pspa4, item_id_col_pspa4]].copy().dropna()
+                        if mba_df.empty or mba_df[order_id_col_pspa4].nunique() < 2 or mba_df[item_id_col_pspa4].nunique() < 2:
+                            st.warning("Not enough data or distinct orders/items for Market Basket Analysis.")
+                        else:
+                            # Create a list of lists, where each inner list contains items in an order
+                            transactions = mba_df.groupby(order_id_col_pspa4)[item_id_col_pspa4].apply(lambda x: list(set(x))).tolist() # Use set to avoid duplicate items within same order if data has them
+                            transactions = [t for t in transactions if len(t) > 1] # Only consider transactions with more than one item for co-purchase
+
+                            if not transactions:
+                                st.warning("No transactions found with multiple items to analyze for co-purchase.")
+                            else:
+                                te = TransactionEncoder()
+                                te_ary = te.fit(transactions).transform(transactions)
+                                basket_df = pd.DataFrame(te_ary, columns=te.columns_)
+
+                                frequent_itemsets = apriori(basket_df, min_support=min_support_pspa4, use_colnames=True, max_len=4) # Limit max_len for performance
+                                
+                                if frequent_itemsets.empty:
+                                    st.info(f"No frequent itemsets found with minimum support of {min_support_pspa4}. Try lowering the support threshold.")
+                                else:
+                                    st.markdown("###### Frequent Itemsets")
+                                    st.dataframe(frequent_itemsets.sort_values(by="support", ascending=False).head(20))
+
+                                    rules = association_rules(frequent_itemsets, metric="confidence", min_threshold=min_confidence_pspa4)
+                                    if rules.empty:
+                                        st.info(f"No association rules found with minimum confidence of {min_confidence_pspa4}. Try lowering the confidence threshold or adjusting support.")
+                                    else:
+                                        st.markdown("###### Association Rules")
+                                        st.dataframe(rules.sort_values(by=["lift", "confidence"], ascending=[False, False]).head(30))
+                    except Exception as e:
+                        st.error(f"Error during Market Basket Analysis: {e}. Ensure 'mlxtend' library is installed.")
 
         # Category 4: Geospatial & Fulfillment Insights (GFI)
         with st.expander("🌍 Geospatial & Fulfillment Insights (GFI)", expanded=False):
