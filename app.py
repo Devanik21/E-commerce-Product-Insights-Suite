@@ -2967,8 +2967,8 @@ try:
                             st.error(f"Error during Promotion Effectiveness by Category analysis: {e}")
         st.markdown("---")
         # This was the end of the 10 new tools. Now the MLS expander follows at the correct indentation. # Line before the target
-        with st.expander("🎯 Transaction B2B Status Prediction"): # The words "🤖 Machine Learning - Supervised (MLS)" have been removed from the label
-            st.subheader("")
+        with st.expander("🎯 Transaction B2B Status Prediction"):
+            # st.subheader("") # Removed empty subheader as expander title is descriptive
             st.info("Train a model to predict if a transaction is B2B based on its features. Select your features and the target B2B column.")
 
             all_cols_mls1 = df.columns.tolist()
@@ -3030,7 +3030,10 @@ try:
                         if mls1_X_processed.empty or mls1_y.empty():
                             st.error("Not enough data after preprocessing for model training.")
                         else:
-                            X_train, X_test, y_train, y_test = train_test_split(mls1_X_processed, mls1_y, test_size=0.3, random_state=42, stratify=mls1_y)
+                            # Ensure stratify is only used if there are at least 2 classes.
+                            # train_test_split itself will raise ValueError if a class has < 2 samples for stratification.
+                            stratify_param = mls1_y if mls1_y.nunique() >= 2 else None
+                            X_train, X_test, y_train, y_test = train_test_split(mls1_X_processed, mls1_y, test_size=0.3, random_state=42, stratify=stratify_param)
                             
                             model_rf = RandomForestClassifier(random_state=42, n_estimators=100, class_weight='balanced')
                             model_rf.fit(X_train, y_train)
