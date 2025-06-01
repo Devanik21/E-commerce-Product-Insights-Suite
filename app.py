@@ -2811,7 +2811,7 @@ try:
                             st.error(f"Error during Sales Seasonality Index analysis: {e}")
         st.markdown("---")
 
-            # --- New Advanced Tool 10: Promotion Effectiveness by Product Category ---
+            # --- New Advanced Tool 10: Promotion Effectiveness by Product Category --- # Existing content before the target expander
         with st.expander("🎉 Promotion Effectiveness by Product Category", expanded=False):
                 st.info("Analyze if promotions are more effective for certain product categories by comparing AOV or Quantity lift for promoted vs. non-promoted items within those categories.")
                 all_cols_adv10 = df.columns.tolist()
@@ -2885,8 +2885,8 @@ try:
                         except Exception as e:
                             st.error(f"Error during Promotion Effectiveness by Category analysis: {e}")
         st.markdown("---")
-        # This was the end of the 10 new tools. Now the MLS expander follows at the correct indentation.
-        with st.expander("🤖 Machine Learning - Supervised (MLS)"):
+        # This was the end of the 10 new tools. Now the MLS expander follows at the correct indentation. # Line before the target
+        with st.expander(""): # The words "🤖 Machine Learning - Supervised (MLS)" have been removed from the label
             st.subheader("🎯 Transaction B2B Status Prediction")
             st.info("Train a model to predict if a transaction is B2B based on its features. Select your features and the target B2B column.")
 
@@ -2985,4 +2985,3 @@ except pd.errors.EmptyDataError:
 except Exception as e:
     st.error(f"An unexpected error occurred during data loading or initial setup: {e}")
     st.stop()
-
