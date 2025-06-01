@@ -2915,8 +2915,8 @@ try:
                             st.error(f"Error during Promotion Effectiveness by Category analysis: {e}")
         st.markdown("---")
         # This was the end of the 10 new tools. Now the MLS expander follows at the correct indentation. # Line before the target
-        with st.expander(""): # The words "🤖 Machine Learning - Supervised (MLS)" have been removed from the label
-            st.subheader("🎯 Transaction B2B Status Prediction")
+        with st.expander("🎯 Transaction B2B Status Prediction"): # The words "🤖 Machine Learning - Supervised (MLS)" have been removed from the label
+            st.subheader("")
             st.info("Train a model to predict if a transaction is B2B based on its features. Select your features and the target B2B column.")
 
             all_cols_mls1 = df.columns.tolist()
