@@ -2929,7 +2929,14 @@ try:
                             model.fit(X_train, y_train)
                             y_pred = model.predict(X_test)
                             st.write(f"**Test R2 Score:** {r2_score(y_test, y_pred):.3f}")
-                            st.write(f"**Test RMSE:** {mean_squared_error(y_test, y_pred, squared=False):.3f}")
+                            # Use 'squared' only if available, else fallback to 'squared_error' for older sklearn
+                            try:
+                                rmse = mean_squared_error(y_test, y_pred, squared=False)
+                            except TypeError:
+                                # For older sklearn, use 'mean_squared_error' and take sqrt
+                                import numpy as np
+                                rmse = np.sqrt(mean_squared_error(y_test, y_pred))
+                            st.write(f"**Test RMSE:** {rmse:.3f}")
                             st.write("**Sample Predictions:**")
                             st.dataframe(pd.DataFrame({"Actual": y_test.values, "Predicted": y_pred}).head(20))
                             if hasattr(model, "feature_importances_"):
