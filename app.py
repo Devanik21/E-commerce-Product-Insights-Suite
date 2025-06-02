@@ -2385,7 +2385,7 @@ try:
 
                     except Exception as e:
                         st.error(f"Error during Repeat Purchase Analysis: {e}")
-        st.markdown("---") # This markdown is now correctly AFTER the FOM expander
+        #st.markdown("---") # This markdown is now correctly AFTER the FOM expander
 
             # --- New Advanced Tool 1: ABC Analysis for Product Prioritization ---
         with st.expander("🥇 ABC Analysis for Product Prioritization", expanded=False):
