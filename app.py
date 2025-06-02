@@ -966,7 +966,131 @@ try:
                                 st.bar_chart(grouped_data.head(top_n_sba))
                                 st.dataframe(grouped_data.reset_index().head(min(len(grouped_data), 50)))
                     except Exception as e:
-                        st.error(f"An error occurred during Promotion Insights Analysis: {e}")
+                        st.error(f"An error occurred during Sales Breakdown Analysis: {e}")
+
+        # New Tool: Sales by Time Patterns
+        with st.expander("🕒 Sales by Time Patterns (Day of Week / Hour of Day)", expanded=False):
+            st.info("Analyze sales metrics (e.g., Amount, Quantity, Order Count) based on the day of the week or hour of the day transactions occurred.")
+
+            all_cols_stp = df.columns.tolist()
+            # Using globally defined get_numeric_columns, date_cols
+
+            st.markdown("#### Column Selection")
+            date_col_stp = st.selectbox(
+                "Select Date Column:",
+                date_cols, # Global date_cols
+                index=date_cols.index('Date') if 'Date' in date_cols else 0,
+                key="stp_date"
+            )
+            metric_col_stp = st.selectbox(
+                "Select Metric Column (e.g., Amount, Qty):",
+                # Allow None, and ensure numeric_cols is used
+                [None] + get_numeric_columns(df),
+                index=0, # Default to None
+                key="stp_metric"
+            )
+            aggregation_stp = st.selectbox(
+                "Select Aggregation Function:",
+                ['Sum', 'Mean', 'Count of Orders'],
+                index=0,
+                key="stp_aggregation"
+            )
+
+            order_id_col_stp_count = None
+            if aggregation_stp == 'Count of Orders':
+                order_id_col_stp_count = st.selectbox(
+                    "Select Order ID column (for counting unique orders):",
+                    all_cols_stp,
+                    index=all_cols_stp.index('Order ID') if 'Order ID' in all_cols_stp else 0,
+                    key="stp_order_id_for_count",
+                    help="Required if 'Count of Orders' is selected."
+                )
+
+            analysis_type_stp = st.radio(
+                "Analyze by:",
+                ('Day of Week', 'Hour of Day'),
+                key="stp_analysis_type"
+            )
+
+            st.markdown("#### Filters & Options")
+            start_date_stp, end_date_stp = None, None
+            if date_col_stp and date_col_stp in df.columns and not df[date_col_stp].isnull().all():
+                min_date_stp_val = df[date_col_stp].min()
+                max_date_stp_val = df[date_col_stp].max()
+                if isinstance(min_date_stp_val, pd.Timestamp): min_date_stp_val = min_date_stp_val.date()
+                if isinstance(max_date_stp_val, pd.Timestamp): max_date_stp_val = max_date_stp_val.date()
+
+                stp_date_col1, stp_date_col2 = st.columns(2)
+                with stp_date_col1:
+                    start_date_stp = st.date_input("Start date for time pattern filter (optional):", min_date_stp_val, min_value=min_date_stp_val, max_value=max_date_stp_val, key="stp_start_date")
+                with stp_date_col2:
+                    end_date_stp = st.date_input("End date for time pattern filter (optional):", max_date_stp_val, min_value=min_date_stp_val, max_value=max_date_stp_val, key="stp_end_date")
+                if start_date_stp and end_date_stp and start_date_stp > end_date_stp:
+                    st.warning("Start date cannot be after end date for filtering.")
+
+            if st.button("🕰️ Run Time Pattern Analysis", key="stp_run"):
+                if not date_col_stp or not metric_col_stp: # metric_col_stp is always needed for selection, even if Count of Orders uses order_id_col
+                    st.warning("Please select a Date column and a Metric column.")
+                elif aggregation_stp == 'Count of Orders' and not order_id_col_stp_count:
+                    st.warning("Please select an Order ID column when aggregation is 'Count of Orders'.")
+                elif start_date_stp and end_date_stp and start_date_stp > end_date_stp:
+                    st.warning("Correct the date range before running analysis.")
+                else:
+                    try:
+                        stp_df_filtered = df.copy()
+                        if start_date_stp and end_date_stp:
+                            stp_df_filtered[date_col_stp] = pd.to_datetime(stp_df_filtered[date_col_stp], errors='coerce')
+                            stp_df_filtered = stp_df_filtered[
+                                (stp_df_filtered[date_col_stp] >= pd.to_datetime(start_date_stp)) &
+                                (stp_df_filtered[date_col_stp] <= pd.to_datetime(end_date_stp))
+                            ]
+                        
+                        stp_df_filtered[date_col_stp] = pd.to_datetime(stp_df_filtered[date_col_stp], errors='coerce')
+                        
+                        required_cols_for_na_drop_stp = [date_col_stp]
+                        if aggregation_stp == 'Count of Orders':
+                            required_cols_for_na_drop_stp.append(order_id_col_stp_count)
+                        else: # For Sum or Mean
+                            required_cols_for_na_drop_stp.append(metric_col_stp)
+                        
+                        stp_df_filtered = stp_df_filtered.dropna(subset=required_cols_for_na_drop_stp)
+
+                        if stp_df_filtered.empty:
+                            st.warning("No data available for the selected criteria in Time Pattern Analysis.")
+                        else:
+                            group_by_col_name = ""
+                            if analysis_type_stp == 'Day of Week':
+                                group_by_col_name = 'DayOfWeek'
+                                stp_df_filtered[group_by_col_name] = stp_df_filtered[date_col_stp].dt.day_name()
+                                day_order = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+                                stp_df_filtered[group_by_col_name] = pd.Categorical(stp_df_filtered[group_by_col_name], categories=day_order, ordered=True)
+
+                            elif analysis_type_stp == 'Hour of Day':
+                                group_by_col_name = 'HourOfDay'
+                                stp_df_filtered[group_by_col_name] = stp_df_filtered[date_col_stp].dt.hour
+                            
+                            st.subheader(f"Sales by {analysis_type_stp}: {aggregation_stp} of '{metric_col_stp if aggregation_stp != 'Count of Orders' else order_id_col_stp_count}'")
+
+                            if aggregation_stp == 'Sum':
+                                grouped_data_stp = stp_df_filtered.groupby(group_by_col_name)[metric_col_stp].sum()
+                            elif aggregation_stp == 'Mean':
+                                grouped_data_stp = stp_df_filtered.groupby(group_by_col_name)[metric_col_stp].mean()
+                            elif aggregation_stp == 'Count of Orders':
+                                grouped_data_stp = stp_df_filtered.groupby(group_by_col_name)[order_id_col_stp_count].nunique()
+                            else:
+                                st.error("Invalid aggregation function selected."); st.stop()
+
+                            if analysis_type_stp == 'Day of Week':
+                                grouped_data_stp = grouped_data_stp.sort_index()
+
+                            if grouped_data_stp.empty:
+                                st.info(f"No data to display for {analysis_type_stp} breakdown.")
+                            else:
+                                st.markdown(f"#### Sales by {analysis_type_stp}")
+                                st.bar_chart(grouped_data_stp)
+                                st.dataframe(grouped_data_stp.reset_index())
+                    except Exception as e:
+                        st.error(f"An error occurred during Time Pattern Analysis: {e}")
 
     with tab2:
         st.header("🤖 AI Powered Insights")
