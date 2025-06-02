@@ -863,6 +863,111 @@ try:
                     except Exception as e:
                         st.error(f"An error occurred during Promotion Insights Analysis: {e}")
 
+        # New Tool: Sales Breakdown by Attribute
+        with st.expander("📊 Sales Breakdown by Attribute", expanded=False):
+            st.info("Analyze sales metrics (e.g., Amount, Quantity) broken down by a selected categorical attribute. Allows for flexible exploration of performance across different dimensions.")
+
+            all_cols_sba = df.columns.tolist()
+            # Using globally defined get_categorical_columns, get_numeric_columns, date_cols
+
+            st.markdown("#### Column Selection")
+            attribute_col_sba = st.selectbox(
+                "Select Attribute Column (Categorical):",
+                [None] + get_categorical_columns(df, nunique_threshold=50), # Allow more unique values
+                index=0,
+                key="sba_attribute"
+            )
+            metric_col_sba = st.selectbox(
+                "Select Metric Column (Numeric - e.g., Amount, Qty):",
+                [None] + get_numeric_columns(df),
+                index=0,
+                key="sba_metric"
+            )
+            aggregation_sba = st.selectbox(
+                "Select Aggregation Function:",
+                ['Sum', 'Mean', 'Count'],
+                index=0,
+                key="sba_aggregation"
+            )
+
+            order_id_col_sba_count = None
+            if aggregation_sba == 'Count':
+                order_id_col_sba_count = st.selectbox(
+                    "Select Order ID column (for counting unique orders, optional):",
+                    [None] + all_cols_sba,
+                    index=([None] + all_cols_sba).index('Order ID') if 'Order ID' in all_cols_sba else 0,
+                    key="sba_order_id_for_count",
+                    help="If selected, 'Count' will represent unique orders. Otherwise, it counts line items/rows."
+                )
+
+            st.markdown("#### Filters & Options")
+            top_n_sba = st.slider("Select Top N attribute values to display in chart:", 5, 30, 10, key="sba_top_n")
+
+            date_col_sba_filter = st.selectbox(
+                "Optional: Select Date column for filtering:",
+                [None] + date_cols, # Global date_cols
+                index=0,
+                key="sba_date_filter"
+            )
+            start_date_sba, end_date_sba = None, None
+            if date_col_sba_filter and date_col_sba_filter in df.columns and not df[date_col_sba_filter].isnull().all():
+                min_date_sba_val = df[date_col_sba_filter].min()
+                max_date_sba_val = df[date_col_sba_filter].max()
+                if isinstance(min_date_sba_val, pd.Timestamp): min_date_sba_val = min_date_sba_val.date()
+                if isinstance(max_date_sba_val, pd.Timestamp): max_date_sba_val = max_date_sba_val.date()
+
+                sba_date_col1, sba_date_col2 = st.columns(2)
+                with sba_date_col1:
+                    start_date_sba = st.date_input("Start date for filter:", min_date_sba_val, min_value=min_date_sba_val, max_value=max_date_sba_val, key="sba_start_date")
+                with sba_date_col2:
+                    end_date_sba = st.date_input("End date for filter:", max_date_sba_val, min_value=min_date_sba_val, max_value=max_date_sba_val, key="sba_end_date")
+                if start_date_sba and end_date_sba and start_date_sba > end_date_sba:
+                    st.warning("Start date cannot be after end date for filtering.")
+
+            if st.button("🔍 Run Sales Breakdown Analysis", key="sba_run"):
+                if not attribute_col_sba or not metric_col_sba:
+                    st.warning("Please select an Attribute column and a Metric column.")
+                elif date_col_sba_filter and start_date_sba and end_date_sba and start_date_sba > end_date_sba:
+                    st.warning("Correct the date range before running analysis.")
+                else:
+                    try:
+                        sba_df_filtered = df.copy()
+                        if date_col_sba_filter and start_date_sba and end_date_sba:
+                            sba_df_filtered[date_col_sba_filter] = pd.to_datetime(sba_df_filtered[date_col_sba_filter], errors='coerce')
+                            sba_df_filtered = sba_df_filtered[(sba_df_filtered[date_col_sba_filter] >= pd.to_datetime(start_date_sba)) & (sba_df_filtered[date_col_sba_filter] <= pd.to_datetime(end_date_sba))]
+
+                        sba_df_filtered = sba_df_filtered.dropna(subset=[attribute_col_sba, metric_col_sba])
+
+                        if sba_df_filtered.empty:
+                            st.warning("No data available for the selected criteria in Sales Breakdown Analysis.")
+                        else:
+                            st.subheader(f"Sales Breakdown: {aggregation_sba} of '{metric_col_sba}' by '{attribute_col_sba}'")
+
+                            if aggregation_sba == 'Sum':
+                                grouped_data = sba_df_filtered.groupby(attribute_col_sba)[metric_col_sba].sum()
+                            elif aggregation_sba == 'Mean':
+                                grouped_data = sba_df_filtered.groupby(attribute_col_sba)[metric_col_sba].mean()
+                            elif aggregation_sba == 'Count':
+                                if order_id_col_sba_count and order_id_col_sba_count in sba_df_filtered.columns:
+                                    grouped_data = sba_df_filtered.groupby(attribute_col_sba)[order_id_col_sba_count].nunique()
+                                    st.caption(f"Counting unique '{order_id_col_sba_count}' per '{attribute_col_sba}'.")
+                                else:
+                                    grouped_data = sba_df_filtered.groupby(attribute_col_sba).size()
+                                    st.caption(f"Counting rows/items per '{attribute_col_sba}'. Select Order ID for unique order count.")
+                            else:
+                                st.error("Invalid aggregation function selected."); st.stop()
+
+                            grouped_data = grouped_data.sort_values(ascending=False)
+
+                            if grouped_data.empty:
+                                st.info(f"No data to display for '{attribute_col_sba}' breakdown.")
+                            else:
+                                st.markdown(f"#### Top {top_n_sba} '{attribute_col_sba}' values by {aggregation_sba} of '{metric_col_sba}'")
+                                st.bar_chart(grouped_data.head(top_n_sba))
+                                st.dataframe(grouped_data.reset_index().head(min(len(grouped_data), 50)))
+                    except Exception as e:
+                        st.error(f"An error occurred during Promotion Insights Analysis: {e}")
+
     with tab2:
         st.header("🤖 AI Powered Insights")
         st.write(f"Use Gemini to generate content and analyze your '{DATASET_FILENAME}' data.")
