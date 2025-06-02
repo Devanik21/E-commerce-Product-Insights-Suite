@@ -865,7 +865,7 @@ try:
 
     with tab2:
         st.header("🤖 AI Powered Insights")
-        st.write(f"Use Gemini to generate content and analyze your '{DATASET_FILENAME}' data.")
+        st.write(f"Leverage the power of Gemini to generate creative content, summaries, and analyze your '{DATASET_FILENAME}' data in new ways.")
 
         if not api_key:
             st.warning("Please enter your Gemini API Key in the sidebar to use AI features.")
@@ -874,6 +874,7 @@ try:
                 genai.configure(api_key=api_key)
                 model = genai.GenerativeModel('gemini-2.0-flash')
 
+                # --- Feature 1: Enhanced Product Description Generator (Existing) ---
                 st.subheader("🛍️ Enhanced Product Description Generator")
                 if not df.empty:
                     # Create a list of products for selection, ensuring columns exist
@@ -919,7 +920,8 @@ try:
                     st.info("No product data available to generate descriptions.")
 
                 st.markdown("---")
-                st.subheader(f"💬 Chat with Your Data ({DATASET_FILENAME})")
+                # --- Feature 2: Chat with Your Data (Existing) ---
+                st.subheader(f"💬 Chat with Your Data ({DATASET_FILENAME})") # Renamed for clarity
                 user_question = st.text_area(f"Ask a question about the {DATASET_FILENAME}:", height=100, key="ai_question")
                 if st.button("💬 Get Answer from AI", key="get_answer_btn"):
                     if user_question:
@@ -938,6 +940,117 @@ try:
                                 st.error(f"Error getting answer: {e}")
                     else:
                         st.warning("Please enter a question.")
+
+                st.markdown("---")
+                # --- Feature 3: Automated Executive Summary ---
+                st.subheader("📄 Automated Executive Summary Generator")
+                st.info(f"Generate a concise executive summary based on the overall '{DATASET_FILENAME}' data. This provides a high-level overview of key metrics and potential insights.")
+                if st.button("✨ Generate Executive Summary", key="gen_exec_summary_btn"):
+                    if df.empty:
+                        st.warning("No data available to generate an executive summary.")
+                    else:
+                        with st.spinner("Generating executive summary..."):
+                            # Prepare a more detailed summary of the DataFrame for the prompt
+                            data_description_for_summary = f"""
+The dataset '{DATASET_FILENAME}' contains e-commerce sales data.
+Number of rows: {len(df)}
+Number of columns: {len(df.columns)}
+Column names: {df.columns.tolist()}
+
+Key numeric columns statistics:
+{df.describe(include=np.number).to_string()}
+
+Key categorical columns (first 5 unique values and counts):
+"""
+                            for col in get_categorical_columns(df, nunique_threshold=10): # Focus on low-cardinality for brevity
+                                data_description_for_summary += f"- {col}: {df[col].value_counts().nlargest(5).to_dict()}\n"
+                            
+                            if 'Date' in df.columns and pd.api.types.is_datetime64_any_dtype(df['Date']):
+                                data_description_for_summary += f"\nDate range: {df['Date'].min()} to {df['Date'].max()}"
+                            if 'Amount' in df.columns:
+                                data_description_for_summary += f"\nTotal Sales Amount: {df['Amount'].sum():.2f}"
+                            if 'Qty' in df.columns:
+                                data_description_for_summary += f"\nTotal Quantity Sold: {df['Qty'].sum()}"
+
+                            prompt = f"""You are an expert business analyst. Based on the following data summary from an e-commerce sales report named '{DATASET_FILENAME}', write a concise executive summary (approx. 150-200 words).
+Focus on:
+1. Overall sales performance (e.g., total revenue, total quantity).
+2. Any immediately obvious patterns or key observations from the provided statistics (e.g., top categories if inferable, date range significance).
+3. Potential areas for further investigation based on the data structure.
+
+Data Summary:
+{data_description_for_summary}
+
+Generate the executive summary:"""
+                            try:
+                                response = model.generate_content(prompt)
+                                st.markdown(response.text)
+                            except Exception as e:
+                                st.error(f"Error generating executive summary: {e}")
+
+                st.markdown("---")
+                # --- Feature 4: Marketing Slogan Generator ---
+                st.subheader("💡 Marketing Slogan Generator")
+                st.info("Generate catchy marketing slogans for a selected product based on its attributes.")
+                if not df.empty:
+                    product_list_slogan = [f"{row.get('SKU', 'N/A')} - {row.get('Style', 'N/A')} ({row.get('Category', 'N/A')})" for index, row in df.head(100).iterrows()] # Sample for selectbox
+                    if not product_list_slogan:
+                        st.info("No products to display for slogan generation.")
+                    else:
+                        selected_product_slogan_display = st.selectbox("Select a product for slogan generation (from first 100 rows):", product_list_slogan, key="product_select_slogan")
+                        if selected_product_slogan_display:
+                            selected_idx_slogan = product_list_slogan.index(selected_product_slogan_display)
+                            product_slogan = df.iloc[selected_idx_slogan] # Use original df for full data
+
+                            if st.button("✍️ Generate Slogans", key="gen_slogan_btn"):
+                                with st.spinner("Generating slogans..."):
+                                    prompt = f"""You are a creative marketing copywriter. Given the product details below, generate 3-5 catchy and concise marketing slogans.
+Product Details:
+Name/Style: {product_slogan.get('Style', product_slogan.get('SKU', 'N/A'))}
+Category: {product_slogan.get('Category', 'N/A')}
+Key Features (implied, use category and style): e.g., for a 'Kurta' in 'Women's Ethnic Wear', features might be 'elegance', 'tradition', 'comfort'.
+Target Audience (implied): e.g., for 'Men's T-shirt', target might be 'young adults', 'casual wearers'.
+
+Generate 3-5 marketing slogans:"""
+                                    try:
+                                        response = model.generate_content(prompt)
+                                        st.markdown(response.text)
+                                    except Exception as e:
+                                        st.error(f"Error generating slogans: {e}")
+                else:
+                    st.info("No product data available to generate slogans.")
+
+                st.markdown("---")
+                # --- Feature 5: Simplified Customer Persona Generator ---
+                st.subheader("👤 Simplified Customer Persona Generator (Conceptual)")
+                st.info("Generate a conceptual customer persona based on a selected product category. This is a simplified, AI-driven interpretation.")
+                if not df.empty and 'Category' in df.columns:
+                    available_categories_persona = df['Category'].dropna().unique().tolist()
+                    if not available_categories_persona:
+                        st.info("No categories available for persona generation.")
+                    else:
+                        selected_category_persona = st.selectbox("Select a product category for persona generation:", available_categories_persona, key="category_select_persona")
+                        if st.button("👤 Generate Persona", key="gen_persona_btn"):
+                            with st.spinner("Generating persona..."):
+                                # For a more detailed persona, one might aggregate sales data for that category.
+                                # Here, we'll keep it simple and rely on the AI's general knowledge about the category.
+                                prompt = f"""You are a market research analyst. Based on the product category '{selected_category_persona}', create a brief, simplified customer persona.
+Include potential:
+- Demographics (age range, gender if applicable)
+- Interests related to this category
+- Shopping motivations for products in this category
+
+Keep it concise (around 100-150 words).
+
+Generate the persona for category '{selected_category_persona}':"""
+                                try:
+                                    response = model.generate_content(prompt)
+                                    st.markdown(response.text)
+                                except Exception as e:
+                                    st.error(f"Error generating persona: {e}")
+                else:
+                    st.info("No category data available to generate personas.")
+
             except Exception as e:
                 st.error(f"Failed to configure or use Gemini API: {e}")
                 st.info("Please ensure your API key is correct and has the necessary permissions.")
