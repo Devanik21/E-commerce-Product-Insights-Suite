@@ -2432,7 +2432,7 @@ try:
 
                         except Exception as e:
                             st.error(f"Error during ABC Analysis: {e}")
-        st.markdown("---")
+        
 
             # --- New Advanced Tool 2: Cross-Category Purchase Analysis ---
         with st.expander("🔗 Cross-Category Purchase Analysis", expanded=False):
@@ -2489,7 +2489,7 @@ try:
                                         st.info("Heatmap skipped due to large number of categories/pairs for better readability.")
                         except Exception as e:
                             st.error(f"Error during Cross-Category Purchase Analysis: {e}")
-        st.markdown("---")
+        
 
             # --- New Advanced Tool 3: Sales Volatility Analysis ---
         with st.expander("📉 Sales Volatility Analysis", expanded=False):
@@ -2531,7 +2531,7 @@ try:
                                 st.pyplot(fig_vol)
                         except Exception as e:
                             st.error(f"Error during Sales Volatility Analysis: {e}")
-        st.markdown("---")
+        #st.markdown("---")
 
             # --- New Advanced Tool 4: Customer Acquisition Cohort Value Analysis ---
         with st.expander("📈 Customer Acquisition Cohort Value Analysis", expanded=False):
@@ -2587,7 +2587,7 @@ try:
                                     st.info("Not enough data to generate cohort value matrix.")
                         except Exception as e:
                             st.error(f"Error during Customer Acquisition Cohort Value Analysis: {e}")
-        st.markdown("---")
+        #st.markdown("---")
 
             # --- New Advanced Tool 5: High-Value vs. Low-Value Order Profiling ---
         with st.expander("💰 High-Value vs. Low-Value Order Profiling", expanded=False):
@@ -2635,7 +2635,7 @@ try:
                                         st.info(f"Plot for '{col_to_profile}' skipped due to high cardinality ({profile_df[col_to_profile].nunique()} unique values). Table provided above.")
                         except Exception as e:
                             st.error(f"Error during Order Value Profiling: {e}")
-        st.markdown("---")
+        #st.markdown("---")
 
             # --- New Advanced Tool 6: Product Return Rate by Attribute ---
         with st.expander("↩️ Product Return Rate by Attribute", expanded=False):
@@ -2692,7 +2692,7 @@ try:
                                     st.info("Bar chart skipped due to high number of attribute values. Table provided above.")
                         except Exception as e:
                             st.error(f"Error during Return Rate by Attribute analysis: {e}")
-        st.markdown("---")
+        #st.markdown("---")
 
             # --- New Advanced Tool 7: Fulfillment Efficiency by Region ---
         with st.expander("🚚 Fulfillment Efficiency by Region", expanded=False):
@@ -2749,7 +2749,7 @@ try:
                                     st.info("Not enough regions to plot.")
                         except Exception as e:
                             st.error(f"Error during Fulfillment Efficiency by Region analysis: {e}")
-        st.markdown("---")
+        #st.markdown("---")
 
             # --- New Advanced Tool 8: B2B vs. B2C Sales Dynamics ---
         with st.expander("🏢 B2B vs. B2C Sales Dynamics", expanded=False):
@@ -2822,7 +2822,7 @@ try:
                                     st.info("Product level column not selected for preference analysis.")
                         except Exception as e:
                             st.error(f"Error during B2B vs. B2C Sales Dynamics analysis: {e}")
-        st.markdown("---")
+        #st.markdown("---")
 
             # --- New Advanced Tool 9: Sales Seasonality Index by Category ---
         with st.expander("📅 Sales Seasonality Index by Category", expanded=False):
@@ -2890,7 +2890,7 @@ try:
                                         st.info("Could not compute seasonality index pivot table.")
                         except Exception as e:
                             st.error(f"Error during Sales Seasonality Index analysis: {e}")
-        st.markdown("---")
+        #st.markdown("---")
 
             # --- New Advanced Tool 10: Promotion Effectiveness by Product Category --- # Existing content before the target expander
         with st.expander("🎉 Promotion Effectiveness by Product Category", expanded=False):
@@ -2965,7 +2965,7 @@ try:
 
                         except Exception as e:
                             st.error(f"Error during Promotion Effectiveness by Category analysis: {e}")
-        st.markdown("---")
+        #st.markdown("---")
         # This was the end of the 10 new tools. Now the MLS expander follows at the correct indentation. # Line before the target
         with st.expander("🎯 Transaction B2B Status Prediction"):
             # st.subheader("") # Removed empty subheader as expander title is descriptive
