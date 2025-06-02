@@ -21,8 +21,7 @@ from statsmodels.formula.api import logit
 from statsmodels.tsa.seasonal import seasonal_decompose
 from statsmodels.tsa.arima.model import ARIMA
 from sklearn.ensemble import RandomForestClassifier # Added for new MLS tool
-from sklearn.ensemble import RandomForestRegressor # For new ML regression tool
-from sklearn.decomposition import PCA # For new PCA tool
+# import networkx as nx # For graph analysis
 # import plotly.express as px # For advanced interactive visualizations
 from lifelines import KaplanMeierFitter
 import pymc as pm
@@ -3165,8 +3164,237 @@ try:
 
                     except Exception as e:
                         st.error(f"Error during Repeat Purchase Analysis: {e}")
-        #st.markdown("---") # This markdown is now correctly AFTER the FOM expander
+            st.markdown("---")
 
+            # --- New Advanced Tool (ML - Supervised): Predict Product 'Category' ---
+            with st.expander("🧩 (ML) Predict Product Category", expanded=False):
+                st.info("Train a model to predict the 'Category' of a product based on other features like Style, Size, Amount, Quantity, Sales Channel, and Fulfilment.")
+                all_cols_adv_cat_pred = df.columns.tolist()
+                numeric_cols_adv_cat_pred = get_numeric_columns(df)
+                categorical_cols_adv_cat_pred = get_categorical_columns(df, nunique_threshold=50)
+
+                target_col_adv_cat_pred = st.selectbox(
+                    "Select Target Category Column:",
+                    [col for col in categorical_cols_adv_cat_pred if col == 'Category'], # Prioritize 'Category'
+                    index=0 if 'Category' in categorical_cols_adv_cat_pred else (categorical_cols_adv_cat_pred.index(next(iter(categorical_cols_adv_cat_pred), None)) if categorical_cols_adv_cat_pred else 0),
+                    key="adv_cat_pred_target"
+                )
+
+                default_features_cat_pred = [f for f in ['Style', 'Size', 'Amount', 'Qty', 'Sales Channel', 'Fulfilment'] if f in all_cols_adv_cat_pred and f != target_col_adv_cat_pred]
+                feature_cols_adv_cat_pred = st.multiselect(
+                    "Select Feature Columns:",
+                    [col for col in numeric_cols_adv_cat_pred + categorical_cols_adv_cat_pred if col != target_col_adv_cat_pred],
+                    default=default_features_cat_pred,
+                    key="adv_cat_pred_features"
+                )
+
+                if st.button("🧠 Train Category Prediction Model", key="adv_cat_pred_run"):
+                    if not target_col_adv_cat_pred or not feature_cols_adv_cat_pred:
+                        st.warning("Please select a target category column and at least one feature column.")
+                    elif target_col_adv_cat_pred not in df.columns:
+                        st.warning(f"Target column '{target_col_adv_cat_pred}' not found.")
+                    else:
+                        try:
+                            cat_pred_df = df[[target_col_adv_cat_pred] + feature_cols_adv_cat_pred].copy().dropna()
+                            if cat_pred_df.empty or cat_pred_df[target_col_adv_cat_pred].nunique() < 2:
+                                st.warning("Not enough data or target categories for prediction.")
+                            else:
+                                X_cat = cat_pred_df[feature_cols_adv_cat_pred]
+                                y_cat = cat_pred_df[target_col_adv_cat_pred]
+
+                                # Preprocessing
+                                for col in X_cat.select_dtypes(include=np.number).columns:
+                                    X_cat[col] = X_cat[col].fillna(X_cat[col].median())
+                                for col in X_cat.select_dtypes(include='object').columns:
+                                    X_cat[col] = X_cat[col].fillna(X_cat[col].mode()[0] if not X_cat[col].mode().empty else 'Unknown')
+                                
+                                X_cat_processed = pd.get_dummies(X_cat, drop_first=True, dummy_na=False)
+
+                                X_train, X_test, y_train, y_test = train_test_split(X_cat_processed, y_cat, test_size=0.3, random_state=42, stratify=y_cat if y_cat.nunique() > 1 else None)
+
+                                model_cat_rf = RandomForestClassifier(random_state=42, n_estimators=100, class_weight='balanced')
+                                model_cat_rf.fit(X_train, y_train)
+                                y_pred_cat = model_cat_rf.predict(X_test)
+
+                                st.markdown("##### Category Prediction Model Performance (Random Forest)")
+                                st.text("Classification Report (Top 5 classes shown if many):")
+                                unique_labels_cat = y_test.unique()
+                                if len(unique_labels_cat) > 7: # Limit displayed labels in report for brevity
+                                    st.text(classification_report(y_test, y_pred_cat, labels=unique_labels_cat[:7], zero_division=0))
+                                    st.caption("Report shown for a subset of categories due to large number.")
+                                else:
+                                    st.text(classification_report(y_test, y_pred_cat, zero_division=0))
+                                
+                                st.markdown("###### Feature Importances")
+                                importances_cat = pd.Series(model_cat_rf.feature_importances_, index=X_train.columns).sort_values(ascending=False)
+                                st.bar_chart(importances_cat.head(15))
+
+                        except Exception as e:
+                            st.error(f"Error during Category Prediction model training: {e}")
+            st.markdown("---")
+
+            # --- New Advanced Tool (ML - Regression): Predict 'Amount' (Sales Value) ---
+            with st.expander("💰 (ML) Predict Sales Amount (Regression)", expanded=False):
+                st.info("Train a model to predict the 'Amount' of a sale based on features like Quantity, Category, Style, Sales Channel, etc.")
+                all_cols_adv_reg = df.columns.tolist()
+                numeric_cols_adv_reg = get_numeric_columns(df)
+                categorical_cols_adv_reg = get_categorical_columns(df, nunique_threshold=50)
+
+                target_col_adv_reg = st.selectbox(
+                    "Select Target Amount Column:",
+                    [col for col in numeric_cols_adv_reg if col == 'Amount'], # Prioritize 'Amount'
+                    index=0 if 'Amount' in numeric_cols_adv_reg else (numeric_cols_adv_reg.index(next(iter(numeric_cols_adv_reg), None)) if numeric_cols_adv_reg else 0),
+                    key="adv_reg_target"
+                )
+
+                default_features_reg = [f for f in ['Qty', 'Category', 'Style', 'Size', 'Sales Channel', 'Fulfilment', 'B2B'] if f in all_cols_adv_reg and f != target_col_adv_reg]
+                feature_cols_adv_reg = st.multiselect(
+                    "Select Feature Columns:",
+                    [col for col in numeric_cols_adv_reg + categorical_cols_adv_reg if col != target_col_adv_reg],
+                    default=default_features_reg,
+                    key="adv_reg_features"
+                )
+
+                if st.button("📈 Train Sales Amount Prediction Model", key="adv_reg_run"):
+                    if not target_col_adv_reg or not feature_cols_adv_reg:
+                        st.warning("Please select a target amount column and at least one feature column.")
+                    elif target_col_adv_reg not in df.columns:
+                        st.warning(f"Target column '{target_col_adv_reg}' not found.")
+                    else:
+                        try:
+                            reg_df = df[[target_col_adv_reg] + feature_cols_adv_reg].copy().dropna()
+                            if reg_df.empty:
+                                st.warning("Not enough data for regression analysis.")
+                            else:
+                                X_reg = reg_df[feature_cols_adv_reg]
+                                y_reg = reg_df[target_col_adv_reg]
+
+                                # Preprocessing
+                                for col in X_reg.select_dtypes(include=np.number).columns:
+                                    X_reg[col] = X_reg[col].fillna(X_reg[col].median())
+                                for col in X_reg.select_dtypes(include='object').columns:
+                                    X_reg[col] = X_reg[col].fillna(X_reg[col].mode()[0] if not X_reg[col].mode().empty else 'Unknown')
+                                
+                                X_reg_processed = pd.get_dummies(X_reg, drop_first=True, dummy_na=False)
+
+                                X_train_reg, X_test_reg, y_train_reg, y_test_reg = train_test_split(X_reg_processed, y_reg, test_size=0.3, random_state=42)
+
+                                model_reg_rf = RandomForestRegressor(random_state=42, n_estimators=100)
+                                model_reg_rf.fit(X_train_reg, y_train_reg)
+                                y_pred_reg = model_reg_rf.predict(X_test_reg)
+
+                                st.markdown("##### Sales Amount Prediction Model Performance (Random Forest Regressor)")
+                                st.write(f"Mean Squared Error (MSE): {mean_squared_error(y_test_reg, y_pred_reg):.2f}")
+                                st.write(f"R-squared (R²): {r2_score(y_test_reg, y_pred_reg):.2f}")
+
+                                st.markdown("###### Feature Importances")
+                                importances_reg = pd.Series(model_reg_rf.feature_importances_, index=X_train_reg.columns).sort_values(ascending=False)
+                                st.bar_chart(importances_reg.head(15))
+
+                        except Exception as e:
+                            st.error(f"Error during Sales Amount Prediction model training: {e}")
+            st.markdown("---")
+
+            # --- New Advanced Tool (ML - Unsupervised): PCA for Product Feature Visualization ---
+            with st.expander("👁️ (ML) Product Feature Visualization with PCA", expanded=False):
+                st.info("Reduce dimensionality of numeric product features (e.g., Amount, Qty) using PCA and visualize them in 2D, optionally colored by a categorical attribute like 'Category' or 'B2B'.")
+                numeric_cols_adv_pca = get_numeric_columns(df)
+                categorical_cols_adv_pca_color = get_categorical_columns(df)
+
+                pca_features = st.multiselect(
+                    "Select Numeric Features for PCA (at least 2):",
+                    numeric_cols_adv_pca,
+                    default=[col for col in ['Amount', 'Qty'] if col in numeric_cols_adv_pca][:2],
+                    key="adv_pca_features"
+                )
+                color_by_col_pca = st.selectbox(
+                    "Optional: Color points by a Categorical Column:",
+                    [None] + categorical_cols_adv_pca_color,
+                    index=0,
+                    key="adv_pca_color"
+                )
+
+                if st.button("✨ Run PCA Visualization", key="adv_pca_run"):
+                    if not pca_features or len(pca_features) < 2:
+                        st.warning("Please select at least two numeric features for PCA.")
+                    else:
+                        try:
+                            pca_df_features = df[pca_features].copy().dropna()
+                            if pca_df_features.empty or len(pca_df_features) < 2:
+                                st.warning("Not enough data for PCA after filtering.")
+                            else:
+                                scaler_pca = StandardScaler()
+                                scaled_features_pca = scaler_pca.fit_transform(pca_df_features)
+
+                                pca = PCA(n_components=2, random_state=42)
+                                principal_components = pca.fit_transform(scaled_features_pca)
+                                pca_result_df = pd.DataFrame(data=principal_components, columns=['PC1', 'PC2'], index=pca_df_features.index)
+
+                                if color_by_col_pca and color_by_col_pca in df.columns:
+                                    pca_result_df[color_by_col_pca] = df.loc[pca_result_df.index, color_by_col_pca]
+
+                                st.markdown("##### PCA Results")
+                                st.write(f"Explained Variance Ratio by PC1: {pca.explained_variance_ratio_[0]:.2%}")
+                                st.write(f"Explained Variance Ratio by PC2: {pca.explained_variance_ratio_[1]:.2%}")
+                                st.write(f"Total Explained Variance by 2 PCs: {pca.explained_variance_ratio_.sum():.2%}")
+
+                                fig_pca, ax_pca = plt.subplots(figsize=(10, 7))
+                                sns.scatterplot(data=pca_result_df, x='PC1', y='PC2', hue=color_by_col_pca if color_by_col_pca else None, palette='viridis', ax=ax_pca, s=30, alpha=0.7)
+                                ax_pca.set_title("2D PCA of Product Features")
+                                ax_pca.set_xlabel("Principal Component 1")
+                                ax_pca.set_ylabel("Principal Component 2")
+                                if color_by_col_pca:
+                                    ax_pca.legend(title=color_by_col_pca)
+                                st.pyplot(fig_pca)
+
+                        except Exception as e:
+                            st.error(f"Error during PCA: {e}")
+            st.markdown("---")
+
+            # --- New Advanced Tool (Non-ML): Geographic Sales Concentration (HHI-like) ---
+            with st.expander("🗺️ Geographic Sales Concentration (HHI-like)", expanded=False):
+                st.info("Measure sales concentration across geographic regions (e.g., 'ship-state', 'ship-city') using an HHI-like index. Higher values indicate more concentration.")
+                all_cols_adv_hhi = df.columns.tolist()
+                numeric_cols_adv_hhi = get_numeric_columns(df)
+
+                geo_col_hhi = st.selectbox("Select Geographic Column (e.g., ship-state, ship-city):", [col for col in ['ship-state', 'ship-city', 'ship-country'] if col in all_cols_adv_hhi] + [c for c in all_cols_adv_hhi if c not in ['ship-state', 'ship-city', 'ship-country']], key="adv_hhi_geo")
+                amount_col_hhi = st.selectbox("Select Sales Amount Column:", numeric_cols_adv_hhi, index=numeric_cols_adv_hhi.index('Amount') if 'Amount' in numeric_cols_adv_hhi else 0, key="adv_hhi_amount")
+
+                if st.button("📍 Calculate Geographic Concentration", key="adv_hhi_run"):
+                    if not geo_col_hhi or not amount_col_hhi:
+                        st.warning("Please select both Geographic and Amount columns.")
+                    elif geo_col_hhi not in df.columns:
+                        st.warning(f"Geographic column '{geo_col_hhi}' not found.")
+                    else:
+                        try:
+                            hhi_df = df[[geo_col_hhi, amount_col_hhi]].copy().dropna()
+                            if hhi_df.empty:
+                                st.warning("No data for HHI calculation.")
+                            else:
+                                region_sales = hhi_df.groupby(geo_col_hhi)[amount_col_hhi].sum()
+                                total_sales = region_sales.sum()
+                                if total_sales == 0:
+                                    st.warning("Total sales are zero, cannot calculate HHI.")
+                                else:
+                                    region_sales_share = (region_sales / total_sales) * 100 # Market share as percentage
+                                    hhi_index = (region_sales_share**2).sum()
+
+                                    st.markdown(f"##### Geographic Sales Concentration for '{geo_col_hhi}'")
+                                    st.metric(f"HHI-like Index (0-10,000 scale):", f"{hhi_index:,.2f}")
+                                    
+                                    interpretation = ""
+                                    if hhi_index < 1500: interpretation = "Low concentration (competitive/diverse market)."
+                                    elif hhi_index < 2500: interpretation = "Moderate concentration."
+                                    else: interpretation = "High concentration (sales focused in few regions)."
+                                    st.info(f"Interpretation: {interpretation}")
+
+                                    st.markdown("###### Top 10 Regions by Sales Share")
+                                    st.dataframe(region_sales_share.sort_values(ascending=False).head(10).reset_index().rename(columns={amount_col_hhi:'SalesShare (%)'}))
+
+                        except Exception as e:
+                            st.error(f"Error during HHI calculation: {e}")
+            st.markdown("---")
+            
             # --- New Advanced Tool 1: ABC Analysis for Product Prioritization ---
         with st.expander("🥇 ABC Analysis for Product Prioritization", expanded=False):
                 st.info("Classify products (SKU) into A, B, C categories based on their contribution to total revenue. 'A' items are high-value, 'C' are low-value.")
