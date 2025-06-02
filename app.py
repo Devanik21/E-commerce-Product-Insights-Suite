@@ -1092,7 +1092,302 @@ try:
                     except Exception as e:
                         st.error(f"An error occurred during Time Pattern Analysis: {e}")
 
-    with tab2:
+        # --- New Tool 1: Top N Movers (Products with Largest Sales Change) ---
+        with st.expander("🚀 Top N Movers (Products with Largest Sales Change)", expanded=False):
+            st.info("Identify products (SKUs) with the largest sales increase or decrease between two periods. Select SKU, Date, and a sales value (Amount or Qty).")
+
+            all_cols_tnm = df.columns.tolist()
+            numeric_cols_tnm = get_numeric_columns(df)
+            date_cols_tnm = date_cols
+
+            st.markdown("#### Column Selection")
+            col1_tnm, col2_tnm, col3_tnm = st.columns(3)
+            with col1_tnm:
+                sku_col_tnm = st.selectbox("Select Product ID/SKU column:", all_cols_tnm, index=all_cols_tnm.index('SKU') if 'SKU' in all_cols_tnm else 0, key="tnm_sku")
+            with col2_tnm:
+                date_col_tnm = st.selectbox("Select Date column:", date_cols_tnm, index=date_cols_tnm.index('Date') if 'Date' in date_cols_tnm else 0, key="tnm_date")
+            with col3_tnm:
+                value_col_tnm = st.selectbox("Select Sales Value (Amount or Qty):", numeric_cols_tnm, index=numeric_cols_tnm.index('Amount') if 'Amount' in numeric_cols_tnm else (numeric_cols_tnm.index('Qty') if 'Qty' in numeric_cols_tnm else 0), key="tnm_value")
+
+            st.markdown("#### Define Periods for Comparison")
+            # Period 1
+            st.markdown("**Period 1 (e.g., Previous Period)**")
+            p1_col1, p1_col2 = st.columns(2)
+            min_date_val_tnm = df[date_col_tnm].min() if date_col_tnm and date_col_tnm in df.columns and not df[date_col_tnm].isnull().all() else datetime.now().date() - pd.Timedelta(days=365*2)
+            max_date_val_tnm = df[date_col_tnm].max() if date_col_tnm and date_col_tnm in df.columns and not df[date_col_tnm].isnull().all() else datetime.now().date()
+            if isinstance(min_date_val_tnm, pd.Timestamp): min_date_val_tnm = min_date_val_tnm.date()
+            if isinstance(max_date_val_tnm, pd.Timestamp): max_date_val_tnm = max_date_val_tnm.date()
+
+            with p1_col1:
+                start_date_p1_tnm = st.date_input("Start Date P1:", min_date_val_tnm, min_value=min_date_val_tnm, max_value=max_date_val_tnm, key="tnm_p1_start")
+            with p1_col2:
+                end_date_p1_tnm = st.date_input("End Date P1:", pd.to_datetime(start_date_p1_tnm) + pd.Timedelta(days=29) if start_date_p1_tnm else min_date_val_tnm, min_value=min_date_val_tnm, max_value=max_date_val_tnm, key="tnm_p1_end")
+
+            # Period 2
+            st.markdown("**Period 2 (e.g., Current Period)**")
+            p2_col1, p2_col2 = st.columns(2)
+            with p2_col1:
+                start_date_p2_tnm = st.date_input("Start Date P2:", pd.to_datetime(end_date_p1_tnm) + pd.Timedelta(days=1) if end_date_p1_tnm else min_date_val_tnm, min_value=min_date_val_tnm, max_value=max_date_val_tnm, key="tnm_p2_start")
+            with p2_col2:
+                end_date_p2_tnm = st.date_input("End Date P2:", pd.to_datetime(start_date_p2_tnm) + pd.Timedelta(days=29) if start_date_p2_tnm else max_date_val_tnm, min_value=min_date_val_tnm, max_value=max_date_val_tnm, key="tnm_p2_end")
+
+            top_n_tnm = st.slider("Number of Top/Bottom Movers to Display:", 5, 25, 10, key="tnm_top_n")
+
+            if st.button("📊 Analyze Top Movers", key="tnm_run"):
+                if not all([sku_col_tnm, date_col_tnm, value_col_tnm, start_date_p1_tnm, end_date_p1_tnm, start_date_p2_tnm, end_date_p2_tnm]):
+                    st.warning("Please select all columns and define both periods.")
+                elif pd.to_datetime(start_date_p1_tnm) > pd.to_datetime(end_date_p1_tnm) or pd.to_datetime(start_date_p2_tnm) > pd.to_datetime(end_date_p2_tnm):
+                    st.warning("Start date cannot be after end date for a period.")
+                elif pd.to_datetime(end_date_p1_tnm) >= pd.to_datetime(start_date_p2_tnm):
+                    st.warning("Period 1 must end before Period 2 begins for a meaningful comparison.")
+                else:
+                    try:
+                        tnm_df_full = df[[sku_col_tnm, date_col_tnm, value_col_tnm]].copy()
+                        tnm_df_full[date_col_tnm] = pd.to_datetime(tnm_df_full[date_col_tnm], errors='coerce')
+                        tnm_df_full = tnm_df_full.dropna()
+
+                        # Filter data for Period 1 and Period 2
+                        p1_data = tnm_df_full[(tnm_df_full[date_col_tnm] >= pd.to_datetime(start_date_p1_tnm)) & (tnm_df_full[date_col_tnm] <= pd.to_datetime(end_date_p1_tnm))]
+                        p2_data = tnm_df_full[(tnm_df_full[date_col_tnm] >= pd.to_datetime(start_date_p2_tnm)) & (tnm_df_full[date_col_tnm] <= pd.to_datetime(end_date_p2_tnm))]
+
+                        if p1_data.empty or p2_data.empty:
+                            st.warning("No data available for one or both selected periods.")
+                        else:
+                            sales_p1 = p1_data.groupby(sku_col_tnm)[value_col_tnm].sum().reset_index(name='Sales_P1')
+                            sales_p2 = p2_data.groupby(sku_col_tnm)[value_col_tnm].sum().reset_index(name='Sales_P2')
+
+                            merged_sales = pd.merge(sales_p1, sales_p2, on=sku_col_tnm, how='outer').fillna(0)
+                            merged_sales['SalesChange'] = merged_sales['Sales_P2'] - merged_sales['Sales_P1']
+                            merged_sales['SalesChangePercentage'] = ((merged_sales['Sales_P2'] - merged_sales['Sales_P1']) / merged_sales['Sales_P1'].replace(0, np.nan)) * 100
+                            merged_sales['SalesChangePercentage'] = merged_sales['SalesChangePercentage'].fillna(0).replace([np.inf, -np.inf], 0)
+
+                            st.subheader("Top N Product Movers Results")
+                            st.markdown(f"#### Top {top_n_tnm} Products with Largest Sales Increase ({value_col_tnm})")
+                            top_gainers = merged_sales.sort_values(by='SalesChange', ascending=False).head(top_n_tnm)
+                            st.dataframe(top_gainers)
+
+                            st.markdown(f"#### Top {top_n_tnm} Products with Largest Sales Decrease ({value_col_tnm})")
+                            top_losers = merged_sales.sort_values(by='SalesChange', ascending=True).head(top_n_tnm)
+                            st.dataframe(top_losers)
+
+                    except Exception as e:
+                        st.error(f"An error occurred during Top N Movers analysis: {e}")
+
+        # --- New Tool 2: Order Size Distribution Analysis ---
+        with st.expander("📦 Order Size Distribution Analysis", expanded=False):
+            st.info("Analyze the distribution of order sizes, either by number of unique items per order or total quantity per order.")
+
+            all_cols_osd = df.columns.tolist()
+            numeric_cols_osd = get_numeric_columns(df)
+
+            order_id_col_osd = st.selectbox("Select Order ID column:", all_cols_osd, index=all_cols_osd.index('Order ID') if 'Order ID' in all_cols_osd else 0, key="osd_order_id")
+            analysis_type_osd = st.radio("Analyze order size by:", ("Number of Unique Items (SKUs)", "Total Quantity of Items"), key="osd_analysis_type")
+
+            item_id_col_osd, qty_col_osd = None, None
+            if analysis_type_osd == "Number of Unique Items (SKUs)":
+                item_id_col_osd = st.selectbox("Select Product ID/SKU column:", all_cols_osd, index=all_cols_osd.index('SKU') if 'SKU' in all_cols_osd else 0, key="osd_item_id")
+            else: # Total Quantity of Items
+                qty_col_osd = st.selectbox("Select Quantity Sold column:", numeric_cols_osd, index=numeric_cols_osd.index('Qty') if 'Qty' in numeric_cols_osd else 0, key="osd_qty")
+
+            if st.button("📊 Analyze Order Size Distribution", key="osd_run"):
+                if not order_id_col_osd or (analysis_type_osd == "Number of Unique Items (SKUs)" and not item_id_col_osd) or \
+                   (analysis_type_osd == "Total Quantity of Items" and not qty_col_osd):
+                    st.warning("Please select all required columns for the chosen analysis type.")
+                else:
+                    try:
+                        osd_df = df.copy()
+                        if analysis_type_osd == "Number of Unique Items (SKUs)":
+                            osd_df = osd_df[[order_id_col_osd, item_id_col_osd]].dropna()
+                            order_sizes = osd_df.groupby(order_id_col_osd)[item_id_col_osd].nunique()
+                            plot_label = "Number of Unique Items per Order"
+                        else: # Total Quantity of Items
+                            osd_df = osd_df[[order_id_col_osd, qty_col_osd]].dropna()
+                            order_sizes = osd_df.groupby(order_id_col_osd)[qty_col_osd].sum()
+                            plot_label = "Total Quantity of Items per Order"
+
+                        if order_sizes.empty:
+                            st.warning("No data available to analyze order size distribution.")
+                        else:
+                            st.subheader(f"Distribution of {plot_label}")
+                            fig_osd, ax_osd = plt.subplots()
+                            sns.histplot(order_sizes, kde=False, ax=ax_osd, bins=max(10, min(50, order_sizes.nunique()))) # Dynamic bins
+                            ax_osd.set_title(f"Distribution of {plot_label}")
+                            ax_osd.set_xlabel(plot_label)
+                            ax_osd.set_ylabel("Number of Orders")
+                            st.pyplot(fig_osd)
+                            st.write("Summary Statistics for Order Sizes:")
+                            st.dataframe(order_sizes.describe())
+
+                    except Exception as e:
+                        st.error(f"An error occurred during Order Size Distribution analysis: {e}")
+
+        # --- New Tool 3: Sales Lag Analysis (Time Between Purchases) ---
+        with st.expander("⏳ Sales Lag Analysis (Time Between Purchases)", expanded=False):
+            st.info("For entities making multiple purchases (using 'Order ID' as a proxy if Customer ID isn't available), analyze the time (days) between consecutive transactions.")
+
+            all_cols_sla = df.columns.tolist()
+            date_cols_sla = date_cols
+
+            # Using 'Order ID' as a proxy for "customer" if no dedicated Customer ID exists.
+            # This means we are analyzing time between transactions for the same 'Order ID' if it can appear multiple times on different dates.
+            # However, 'Order ID' is unique per row in this dataset. So, this tool is more conceptual for this specific dataset
+            # unless a true Customer ID is present or 'Order ID' could represent a recurring subscription ID.
+            # For demonstration, we'll proceed assuming 'Order ID' could represent an entity making multiple transactions over time.
+            entity_id_col_sla = st.selectbox("Select Customer/Entity ID column (e.g., a true Customer ID or 'Order ID' as proxy):", all_cols_sla, index=all_cols_sla.index('Order ID') if 'Order ID' in all_cols_sla else 0, key="sla_entity_id")
+            date_col_sla = st.selectbox("Select Order Date column:", date_cols_sla, index=date_cols_sla.index('Date') if 'Date' in date_cols_sla else 0, key="sla_date")
+
+            if st.button("📊 Analyze Sales Lag", key="sla_run"):
+                if not entity_id_col_sla or not date_col_sla:
+                    st.warning("Please select both Entity ID and Date columns.")
+                else:
+                    try:
+                        sla_df = df[[entity_id_col_sla, date_col_sla]].copy()
+                        sla_df[date_col_sla] = pd.to_datetime(sla_df[date_col_sla], errors='coerce')
+                        sla_df = sla_df.dropna().sort_values(by=[entity_id_col_sla, date_col_sla])
+
+                        if sla_df.empty:
+                            st.warning("No data for sales lag analysis.")
+                        else:
+                            sla_df['PreviousPurchaseDate'] = sla_df.groupby(entity_id_col_sla)[date_col_sla].shift(1)
+                            sla_df['DaysBetweenPurchases'] = (sla_df[date_col_sla] - sla_df['PreviousPurchaseDate']).dt.days
+                            
+                            purchase_lags = sla_df.dropna(subset=['DaysBetweenPurchases'])
+
+                            if purchase_lags.empty:
+                                st.info(f"No repeat purchases found for entities in '{entity_id_col_sla}' to calculate lag times. This tool is most effective with a true Customer ID and repeat purchases.")
+                            else:
+                                st.subheader("Sales Lag Analysis Results")
+                                st.markdown("###### Distribution of Days Between Consecutive Purchases")
+                                fig_sla, ax_sla = plt.subplots()
+                                sns.histplot(purchase_lags['DaysBetweenPurchases'], kde=True, ax=ax_sla, bins=30)
+                                ax_sla.set_title("Distribution of Days Between Purchases")
+                                ax_sla.set_xlabel("Days Between Purchases")
+                                st.pyplot(fig_sla)
+
+                                st.write("Summary Statistics for Days Between Purchases:")
+                                st.dataframe(purchase_lags['DaysBetweenPurchases'].describe())
+                                st.caption(f"Note: If '{entity_id_col_sla}' is 'Order ID' (unique per row), this analysis might not yield meaningful results unless an 'Order ID' can truly represent an entity with multiple dated transactions.")
+                    except Exception as e:
+                        st.error(f"An error occurred during Sales Lag Analysis: {e}")
+
+        # --- New Tool 4: Category Penetration by Sales Channel ---
+        with st.expander("🔗 Category Penetration by Sales Channel", expanded=False):
+            st.info("Analyze the revenue share of each Product Category within different Sales Channels. Helps understand channel-specific category strengths.")
+
+            all_cols_cpsc = df.columns.tolist()
+            numeric_cols_cpsc = get_numeric_columns(df)
+            categorical_cols_cpsc = get_categorical_columns(df)
+
+            sales_channel_col_cpsc = st.selectbox("Select Sales Channel column:", categorical_cols_cpsc, index=categorical_cols_cpsc.index('Sales Channel') if 'Sales Channel' in categorical_cols_cpsc else 0, key="cpsc_channel")
+            category_col_cpsc = st.selectbox("Select Category column:", categorical_cols_cpsc, index=categorical_cols_cpsc.index('Category') if 'Category' in categorical_cols_cpsc else 0, key="cpsc_category")
+            amount_col_cpsc = st.selectbox("Select Sales Amount column:", numeric_cols_cpsc, index=numeric_cols_cpsc.index('Amount') if 'Amount' in numeric_cols_cpsc else 0, key="cpsc_amount")
+
+            if st.button("📊 Analyze Category Penetration", key="cpsc_run"):
+                if not all([sales_channel_col_cpsc, category_col_cpsc, amount_col_cpsc]):
+                    st.warning("Please select Sales Channel, Category, and Amount columns.")
+                else:
+                    try:
+                        cpsc_df = df[[sales_channel_col_cpsc, category_col_cpsc, amount_col_cpsc]].copy().dropna()
+                        if cpsc_df.empty:
+                            st.warning("No data for category penetration analysis.")
+                        else:
+                            pivot_cpsc = pd.pivot_table(cpsc_df, values=amount_col_cpsc, index=sales_channel_col_cpsc, columns=category_col_cpsc, aggfunc='sum', fill_value=0)
+                            penetration_cpsc = pivot_cpsc.apply(lambda x: (x / x.sum() * 100), axis=1) # Percentage along rows (channels)
+
+                            st.subheader(f"Category Revenue Share (%) within each {sales_channel_col_cpsc}")
+                            st.dataframe(penetration_cpsc.style.format("{:.1f}%"))
+
+                            if not penetration_cpsc.empty:
+                                # Select top N categories overall for a cleaner stacked bar chart
+                                top_n_cat_plot = 7
+                                top_categories_overall = cpsc_df.groupby(category_col_cpsc)[amount_col_cpsc].sum().nlargest(top_n_cat_plot).index
+                                plot_df_cpsc = penetration_cpsc[top_categories_overall if not top_categories_overall.empty else penetration_cpsc.columns[:top_n_cat_plot]]
+                                
+                                if not plot_df_cpsc.empty:
+                                    fig_cpsc, ax_cpsc = plt.subplots(figsize=(12, 7))
+                                    plot_df_cpsc.plot(kind='bar', stacked=True, ax=ax_cpsc, colormap='viridis')
+                                    ax_cpsc.set_title(f'Category Revenue Share by {sales_channel_col_cpsc} (Top Categories)')
+                                    ax_cpsc.set_ylabel('Percentage of Channel Revenue (%)')
+                                    ax_cpsc.legend(title=category_col_cpsc, bbox_to_anchor=(1.05, 1), loc='upper left')
+                                    plt.xticks(rotation=45, ha="right")
+                                    plt.tight_layout()
+                                    st.pyplot(fig_cpsc)
+                                else:
+                                    st.info("Not enough data to plot category penetration.")
+                    except Exception as e:
+                        st.error(f"An error occurred during Category Penetration analysis: {e}")
+
+        # --- New Tool 5: Shipment Status Tracker ---
+        with st.expander("🚚 Shipment Status Tracker", expanded=False):
+            st.info("Track order shipment statuses (e.g., 'Shipped', 'Cancelled', 'Delivered') over time or by service level. Uses 'Status' or 'Courier Status' column.")
+
+            all_cols_sst = df.columns.tolist()
+            date_cols_sst = date_cols
+            categorical_cols_sst = get_categorical_columns(df)
+
+            order_id_col_sst = st.selectbox("Select Order ID column:", all_cols_sst, index=all_cols_sst.index('Order ID') if 'Order ID' in all_cols_sst else 0, key="sst_order_id")
+            # Allow choosing between 'Status' and 'Courier Status'
+            status_col_options_sst = [col for col in ['Status', 'Courier Status'] if col in all_cols_sst]
+            if not status_col_options_sst: status_col_options_sst = all_cols_sst # Fallback if specific ones not found
+            
+            status_col_sst = st.selectbox("Select Status column ('Status' or 'Courier Status'):", status_col_options_sst, key="sst_status")
+            date_col_sst = st.selectbox("Select Date column (for trends):", date_cols_sst, index=date_cols_sst.index('Date') if 'Date' in date_cols_sst else 0, key="sst_date")
+            grouping_col_sst = st.selectbox("Optional: Group by column (e.g., ship-service-level):", [None] + categorical_cols_sst, key="sst_grouping")
+            agg_freq_sst = st.selectbox("Aggregate trend by:", ["D", "W", "M"], index=1, format_func=lambda x: {"D":"Daily", "W":"Weekly", "M":"Monthly"}[x], key="sst_agg_freq")
+
+            if st.button("📊 Track Shipment Statuses", key="sst_run"):
+                if not order_id_col_sst or not status_col_sst or not date_col_sst:
+                    st.warning("Please select Order ID, Status, and Date columns.")
+                elif status_col_sst not in df.columns: # Check if selected status column actually exists
+                    st.error(f"The selected status column '{status_col_sst}' was not found in the dataset.")
+                else:
+                    try:
+                        sst_df = df[[order_id_col_sst, status_col_sst, date_col_sst]].copy()
+                        if grouping_col_sst and grouping_col_sst in df.columns:
+                            sst_df[grouping_col_sst] = df[grouping_col_sst]
+                        
+                        sst_df[date_col_sst] = pd.to_datetime(sst_df[date_col_sst], errors='coerce')
+                        sst_df = sst_df.dropna(subset=[order_id_col_sst, status_col_sst, date_col_sst])
+
+                        if sst_df.empty:
+                            st.warning("No data for shipment status tracking.")
+                        else:
+                            st.subheader(f"Shipment Status Analysis (based on '{status_col_sst}')")
+
+                            st.markdown("###### Current Distribution of Shipment Statuses")
+                            status_counts = sst_df[status_col_sst].value_counts()
+                            st.bar_chart(status_counts)
+                            st.dataframe(status_counts.reset_index())
+
+                            st.markdown(f"###### Trend of Shipment Statuses Over Time ({agg_freq_sst})")
+                            sst_df['TimePeriod'] = sst_df[date_col_sst].dt.to_period(agg_freq_sst)
+                            
+                            if grouping_col_sst and grouping_col_sst in sst_df.columns:
+                                trend_data = sst_df.groupby(['TimePeriod', grouping_col_sst, status_col_sst])[order_id_col_sst].nunique().unstack(fill_value=0).unstack(fill_value=0)
+                                st.write(f"Showing trends for top statuses, grouped by '{grouping_col_sst}'. Select a group to view its trend:")
+                                available_groups_sst = sst_df[grouping_col_sst].dropna().unique().tolist()
+                                selected_group_trend_sst = st.selectbox("Select group to display trend:", [None] + available_groups_sst, key="sst_select_group_trend")
+                                if selected_group_trend_sst and selected_group_trend_sst in trend_data.columns.levels[0]:
+                                    st.line_chart(trend_data[selected_group_trend_sst].fillna(0))
+                                elif selected_group_trend_sst is None and not trend_data.empty:
+                                    st.info(f"Select a group from the dropdown to see its specific status trend. Displaying overall status counts above.")
+                                elif not trend_data.empty : # if selected group not in columns (should not happen with proper list)
+                                    st.info(f"No trend data for group '{selected_group_trend_sst}'.")
+                            else:
+                                trend_data = sst_df.groupby(['TimePeriod', status_col_sst])[order_id_col_sst].nunique().unstack(fill_value=0)
+                                if not trend_data.empty:
+                                    st.line_chart(trend_data.fillna(0))
+                                else:
+                                    st.info("No trend data to display.")
+                            
+                            if not trend_data.empty:
+                                st.write("Trend Data (first 10 periods):")
+                                st.dataframe(trend_data.head(10))
+
+                    except Exception as e:
+                        st.error(f"An error occurred during Shipment Status Tracking: {e}")
+
+    with tab2: # This is the start of Tab 2, ensuring new tools are within Tab 1
         st.header("🤖 AI Powered Insights")
         st.write(f"Use Gemini to generate content and analyze your '{DATASET_FILENAME}' data.")
 
