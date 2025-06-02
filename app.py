@@ -1909,7 +1909,7 @@ try:
 
                     except Exception as e:
                         st.error(f"Error during AOV analysis: {e}")
-            
+            st.markdown("---")
 
             # FOM 2: Discount Impact Analysis (using promotion-ids)
             st.subheader("FOM 2: Discount Impact Analysis (using promotion-ids)")
@@ -1977,7 +1977,7 @@ try:
 
                     except Exception as e:
                         st.error(f"Error during discount impact analysis: {e}")
-            
+            st.markdown("---")
 
             # FOM 3: Fulfilment Method Deep Dive
             st.subheader("FOM 3: Fulfilment Method Deep Dive")
@@ -2044,7 +2044,7 @@ try:
                                 st.info(f"No data for {fulfilment_col_fom3} vs {category_col_fom3} breakdown.")
                     except Exception as e:
                         st.error(f"Error during fulfilment method analysis: {e}")
-            
+            st.markdown("---")
 
             # FOM 4: Payment Method Analysis
             st.subheader("FOM 4: Payment Method Analysis")
@@ -2109,7 +2109,7 @@ try:
 
                     except Exception as e:
                         st.error(f"Error during Payment Method Analysis: {e}")
-            
+            st.markdown("---")
 
             # FOM 5: Customer Lifetime Value (CLV) Estimation (Simplified)
             st.subheader("FOM 5: Customer Lifetime Value (CLV) Estimation (Simplified)")
@@ -2170,7 +2170,7 @@ try:
 
                     except Exception as e:
                         st.error(f"Error during Simplified CLV Estimation: {e}")
-            
+            st.markdown("---")
 
             # FOM 6: COGS & Profit Margin Analysis (Conceptual)
             st.subheader("FOM 6: COGS & Profit Margin Analysis (Conceptual)")
