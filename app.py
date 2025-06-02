@@ -21,7 +21,8 @@ from statsmodels.formula.api import logit
 from statsmodels.tsa.seasonal import seasonal_decompose
 from statsmodels.tsa.arima.model import ARIMA
 from sklearn.ensemble import RandomForestClassifier # Added for new MLS tool
-# import networkx as nx # For graph analysis
+from sklearn.ensemble import RandomForestRegressor # For new ML regression tool
+from sklearn.decomposition import PCA # For new PCA tool
 # import plotly.express as px # For advanced interactive visualizations
 from lifelines import KaplanMeierFitter
 import pymc as pm
