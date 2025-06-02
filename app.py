@@ -3027,7 +3027,7 @@ try:
                         
                         mls1_X_processed = pd.get_dummies(mls1_X, drop_first=True, dummy_na=False)
 
-                        if mls1_X_processed.empty or mls1_y.empty():
+                        if mls1_X_processed.empty or mls1_y.empty:
                             st.error("Not enough data after preprocessing for model training.")
                         else:
                             # Ensure stratify is only used if there are at least 2 classes.
