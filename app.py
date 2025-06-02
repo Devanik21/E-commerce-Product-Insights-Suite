@@ -1387,7 +1387,262 @@ try:
                     except Exception as e:
                         st.error(f"An error occurred during Shipment Status Tracking: {e}")
 
-    with tab2: # This is the start of Tab 2, ensuring new tools are within Tab 1
+        # --- New Tool 6 (Total 18): Period-over-Period (PoP) Growth Analysis ---
+        with st.expander("📈 Period-over-Period (PoP) Growth Analysis", expanded=False):
+            st.info("Calculate and visualize key growth metrics (e.g., Month-over-Month, Year-over-Year) for Sales Revenue, Number of Orders, and Average Order Value (AOV).")
+
+            all_cols_pop = df.columns.tolist()
+            numeric_cols_pop = get_numeric_columns(df)
+            date_cols_pop = date_cols
+
+            st.markdown("#### Column Selection")
+            pop_col1, pop_col2, pop_col3 = st.columns(3)
+            with pop_col1:
+                date_col_pop = st.selectbox("Select Date column:", date_cols_pop, index=date_cols_pop.index('Date') if 'Date' in date_cols_pop else 0, key="pop_date")
+            with pop_col2:
+                amount_col_pop = st.selectbox("Select Sales Amount column:", numeric_cols_pop, index=numeric_cols_pop.index('Amount') if 'Amount' in numeric_cols_pop else 0, key="pop_amount")
+            with pop_col3:
+                order_id_col_pop = st.selectbox("Select Order ID column (for order counts & AOV):", all_cols_pop, index=all_cols_pop.index('Order ID') if 'Order ID' in all_cols_pop else 0, key="pop_order_id")
+
+            pop_period_type = st.selectbox("Select PoP Type:", ["Month-over-Month (MoM)", "Quarter-over-Quarter (QoQ)", "Year-over-Year (YoY)"], key="pop_period_type")
+
+            if st.button("📊 Analyze PoP Growth", key="pop_run"):
+                if not all([date_col_pop, amount_col_pop, order_id_col_pop]):
+                    st.warning("Please select Date, Amount, and Order ID columns.")
+                else:
+                    try:
+                        pop_df = df[[date_col_pop, amount_col_pop, order_id_col_pop]].copy()
+                        pop_df[date_col_pop] = pd.to_datetime(pop_df[date_col_pop], errors='coerce')
+                        pop_df = pop_df.dropna()
+
+                        if pop_df.empty:
+                            st.warning("No data available for PoP growth analysis.")
+                        else:
+                            # Aggregate data by the chosen period start
+                            if pop_period_type == "Month-over-Month (MoM)":
+                                freq_code = 'MS' # Month Start
+                                shift_periods = 1
+                            elif pop_period_type == "Quarter-over-Quarter (QoQ)":
+                                freq_code = 'QS' # Quarter Start
+                                shift_periods = 1
+                            else: # Year-over-Year (YoY)
+                                freq_code = 'YS' # Year Start
+                                shift_periods = 1
+                            
+                            # Ensure index is datetime for resampling
+                            pop_df_indexed = pop_df.set_index(date_col_pop)
+
+                            # Aggregate metrics
+                            periodic_sales = pop_df_indexed.resample(freq_code)[amount_col_pop].sum()
+                            periodic_orders = pop_df_indexed.resample(freq_code)[order_id_col_pop].nunique()
+                            periodic_aov = periodic_sales / periodic_orders.replace(0, np.nan)
+
+                            if periodic_sales.empty or len(periodic_sales) < shift_periods + 1:
+                                st.warning(f"Not enough historical periods to calculate {pop_period_type} growth. Need at least {shift_periods+1} periods.")
+                            else:
+                                growth_data = pd.DataFrame({
+                                    'TotalSales': periodic_sales,
+                                    'TotalOrders': periodic_orders,
+                                    'AOV': periodic_aov
+                                }).dropna()
+
+                                # Calculate PoP growth
+                                for col in ['TotalSales', 'TotalOrders', 'AOV']:
+                                    growth_data[f'{col}_Previous'] = growth_data[col].shift(shift_periods)
+                                    growth_data[f'{col}_Growth_%'] = ((growth_data[col] - growth_data[f'{col}_Previous']) / growth_data[f'{col}_Previous'].replace(0, np.nan)) * 100
+                                
+                                growth_data = growth_data.dropna(subset=[f'{col}_Growth_%' for col in ['TotalSales', 'TotalOrders', 'AOV']], how='all')
+                                growth_data = growth_data.replace([np.inf, -np.inf], np.nan) # Handle infinities from division by zero
+
+                                st.subheader(f"{pop_period_type} Growth Analysis Results")
+                                st.dataframe(growth_data)
+
+                                st.markdown(f"#### Sales Growth ({pop_period_type})")
+                                st.line_chart(growth_data[[f'TotalSales_Growth_%']].fillna(0))
+                                
+                                st.markdown(f"#### Order Count Growth ({pop_period_type})")
+                                st.line_chart(growth_data[[f'TotalOrders_Growth_%']].fillna(0))
+
+                                st.markdown(f"#### AOV Growth ({pop_period_type})")
+                                st.line_chart(growth_data[[f'AOV_Growth_%']].fillna(0))
+                    except Exception as e:
+                        st.error(f"An error occurred during PoP Growth Analysis: {e}")
+
+        # --- New Tool 7 (Total 19): Sales Performance by Price Tiers ---
+        with st.expander("💲 Sales Performance by Price Tiers", expanded=False):
+            st.info("Define price buckets and analyze sales performance (Revenue, Quantity, Unique Products) within these tiers.")
+
+            all_cols_sppt = df.columns.tolist()
+            numeric_cols_sppt = get_numeric_columns(df)
+
+            st.markdown("#### Column Selection")
+            sppt_col1, sppt_col2, sppt_col3 = st.columns(3)
+            with sppt_col1:
+                # Price column could be 'Amount' if each row is an item with its price, or a dedicated 'Price' column
+                price_col_sppt = st.selectbox("Select Price column (e.g., Amount per item):", numeric_cols_sppt, index=numeric_cols_sppt.index('Amount') if 'Amount' in numeric_cols_sppt else 0, key="sppt_price")
+            with sppt_col2:
+                qty_col_sppt = st.selectbox("Select Quantity Sold column:", numeric_cols_sppt, index=numeric_cols_sppt.index('Qty') if 'Qty' in numeric_cols_sppt else 0, key="sppt_qty")
+            with sppt_col3:
+                sku_col_sppt = st.selectbox("Select Product ID/SKU column (for unique product count):", all_cols_sppt, index=all_cols_sppt.index('SKU') if 'SKU' in all_cols_sppt else 0, key="sppt_sku")
+
+            st.markdown("#### Define Price Tiers")
+            st.caption("Enter comma-separated upper bounds for your price tiers (e.g., 20,50,100,500). This will create tiers like <20, 20-50, 50-100, 100-500, >500.")
+            tier_bounds_str = st.text_input("Price Tier Upper Bounds:", "20,50,100,200,500", key="sppt_tiers")
+
+            if st.button("📊 Analyze by Price Tiers", key="sppt_run"):
+                if not all([price_col_sppt, qty_col_sppt, sku_col_sppt, tier_bounds_str]):
+                    st.warning("Please select all columns and define price tiers.")
+                else:
+                    try:
+                        tier_bounds = sorted([float(b.strip()) for b in tier_bounds_str.split(',') if b.strip()])
+                        if not tier_bounds:
+                            st.warning("Please enter valid numeric price tier bounds.")
+                        else:
+                            sppt_df = df[[price_col_sppt, qty_col_sppt, sku_col_sppt]].copy().dropna()
+                            sppt_df['Revenue'] = sppt_df[price_col_sppt] * sppt_df[qty_col_sppt] # Assuming price_col is per unit price
+
+                            # Create price tier labels
+                            bins = [-np.inf] + tier_bounds + [np.inf]
+                            labels = [f"< {tier_bounds[0]}"] + \
+                                     [f"{tier_bounds[i]}-{tier_bounds[i+1]}" for i in range(len(tier_bounds)-1)] + \
+                                     [f"> {tier_bounds[-1]}"]
+                            
+                            sppt_df['PriceTier'] = pd.cut(sppt_df[price_col_sppt], bins=bins, labels=labels, right=False)
+
+                            if sppt_df.empty:
+                                st.warning("No data available for price tier analysis.")
+                            else:
+                                tier_summary = sppt_df.groupby('PriceTier', observed=False).agg(
+                                    TotalRevenue=('Revenue', 'sum'),
+                                    TotalQuantity=(qty_col_sppt, 'sum'),
+                                    UniqueProducts=(sku_col_sppt, 'nunique')
+                                ).reset_index()
+
+                                st.subheader("Sales Performance by Price Tiers")
+                                st.dataframe(tier_summary)
+
+                                fig_sppt_rev, ax_sppt_rev = plt.subplots()
+                                sns.barplot(data=tier_summary, x='PriceTier', y='TotalRevenue', ax=ax_sppt_rev, palette="viridis")
+                                ax_sppt_rev.set_title("Total Revenue by Price Tier")
+                                ax_sppt_rev.set_ylabel("Total Revenue")
+                                plt.xticks(rotation=45, ha="right")
+                                plt.tight_layout()
+                                st.pyplot(fig_sppt_rev)
+
+                                fig_sppt_qty, ax_sppt_qty = plt.subplots()
+                                sns.barplot(data=tier_summary, x='PriceTier', y='TotalQuantity', ax=ax_sppt_qty, palette="magma")
+                                ax_sppt_qty.set_title("Total Quantity Sold by Price Tier")
+                                ax_sppt_qty.set_ylabel("Total Quantity")
+                                plt.xticks(rotation=45, ha="right")
+                                plt.tight_layout()
+                                st.pyplot(fig_sppt_qty)
+
+                    except ValueError:
+                        st.error("Invalid input for price tier bounds. Please use comma-separated numbers.")
+                    except Exception as e:
+                        st.error(f"An error occurred during Price Tier Analysis: {e}")
+
+        # --- New Tool 8 (Total 20): Comparative Profile of Top vs. Bottom Performing Products ---
+        with st.expander("🆚 Comparative Profile of Top vs. Bottom Products", expanded=False):
+            st.info("Compare characteristics of top N% vs. bottom N% of products (by revenue) across various attributes like Sales Channel, Fulfilment, B2B status, etc.")
+
+            all_cols_cptb = df.columns.tolist()
+            numeric_cols_cptb = get_numeric_columns(df)
+            categorical_cols_cptb = get_categorical_columns(df, nunique_threshold=50) # Allow slightly higher cardinality for profiling
+
+            st.markdown("#### Column Selection")
+            cptb_col1, cptb_col2 = st.columns(2)
+            with cptb_col1:
+                sku_col_cptb = st.selectbox("Select Product ID/SKU column:", all_cols_cptb, index=all_cols_cptb.index('SKU') if 'SKU' in all_cols_cptb else 0, key="cptb_sku")
+                amount_col_cptb = st.selectbox("Select Sales Amount column (for ranking):", numeric_cols_cptb, index=numeric_cols_cptb.index('Amount') if 'Amount' in numeric_cols_cptb else 0, key="cptb_amount")
+            with cptb_col2:
+                profiling_attributes_cptb = st.multiselect(
+                    "Select attributes for profiling:",
+                    [col for col in categorical_cols_cptb + numeric_cols_cptb if col not in [sku_col_cptb, amount_col_cptb]],
+                    default=[col for col in ['Sales Channel', 'Fulfilment', 'B2B', 'Category', 'Qty'] if col in df.columns and col not in [sku_col_cptb, amount_col_cptb]],
+                    key="cptb_attributes"
+                )
+
+            percentile_cptb = st.slider("Select N% for Top/Bottom (e.g., 20% for top 20% and bottom 20%):", 5, 50, 20, 5, key="cptb_percentile")
+
+            if st.button("📊 Compare Product Profiles", key="cptb_run"):
+                if not all([sku_col_cptb, amount_col_cptb]) or not profiling_attributes_cptb:
+                    st.warning("Please select SKU, Amount, and at least one Profiling Attribute.")
+                else:
+                    try:
+                        cptb_df = df.copy()
+                        product_revenue = cptb_df.groupby(sku_col_cptb)[amount_col_cptb].sum().reset_index()
+                        
+                        if product_revenue.empty:
+                            st.warning("No product revenue data to rank products.")
+                        else:
+                            num_products = len(product_revenue)
+                            top_n_count = int(num_products * (percentile_cptb / 100.0))
+                            
+                            if top_n_count == 0 and num_products > 0: # Ensure at least 1 product if percentile is too small
+                                top_n_count = 1
+                            
+                            if num_products < 2 or top_n_count == 0:
+                                st.warning(f"Not enough products ({num_products}) or too small a percentile to form distinct top/bottom groups.")
+                            else:
+                                top_products = product_revenue.nlargest(top_n_count, amount_col_cptb)[sku_col_cptb]
+                                bottom_products = product_revenue.nsmallest(top_n_count, amount_col_cptb)[sku_col_cptb]
+
+                                top_df = cptb_df[cptb_df[sku_col_cptb].isin(top_products)]
+                                bottom_df = cptb_df[cptb_df[sku_col_cptb].isin(bottom_products)]
+
+                                if top_df.empty or bottom_df.empty:
+                                    st.warning("Could not form both top and bottom product groups. Check data or percentile.")
+                                else:
+                                    st.subheader(f"Comparative Profile: Top {percentile_cptb}% vs. Bottom {percentile_cptb}% Products")
+
+                                    profile_summary_list = []
+                                    for attr in profiling_attributes_cptb:
+                                        if attr in cptb_df.columns:
+                                            if cptb_df[attr].dtype == 'object' or cptb_df[attr].nunique() < 20 : # Categorical or low-cardinality numeric
+                                                top_dist = top_df[attr].value_counts(normalize=True).mul(100).round(1)
+                                                bottom_dist = bottom_df[attr].value_counts(normalize=True).mul(100).round(1)
+                                                
+                                                # Combine into a displayable format
+                                                comparison_df = pd.DataFrame({
+                                                    f'Top {percentile_cptb}% Dist. (%)': top_dist,
+                                                    f'Bottom {percentile_cptb}% Dist. (%)': bottom_dist
+                                                }).fillna(0)
+                                                
+                                                st.markdown(f"###### Attribute: {attr} (Distribution %)")
+                                                st.dataframe(comparison_df)
+                                                
+                                                # Plot if not too many categories
+                                                if len(comparison_df) < 10 and len(comparison_df)>0:
+                                                    fig_comp, ax_comp = plt.subplots()
+                                                    comparison_df.plot(kind='bar', ax=ax_comp, figsize=(8, max(4, len(comparison_df)*0.5)))
+                                                    ax_comp.set_title(f"Distribution of {attr}")
+                                                    ax_comp.set_ylabel("Percentage (%)")
+                                                    plt.xticks(rotation=45, ha="right")
+                                                    plt.tight_layout()
+                                                    st.pyplot(fig_comp)
+
+                                            elif pd.api.types.is_numeric_dtype(cptb_df[attr]): # Numeric attribute
+                                                top_mean = top_df[attr].mean()
+                                                bottom_mean = bottom_df[attr].mean()
+                                                top_median = top_df[attr].median()
+                                                bottom_median = bottom_df[attr].median()
+                                                profile_summary_list.append({
+                                                    'Attribute': attr,
+                                                    f'Top {percentile_cptb}% Mean': f"{top_mean:.2f}",
+                                                    f'Bottom {percentile_cptb}% Mean': f"{bottom_mean:.2f}",
+                                                    f'Top {percentile_cptb}% Median': f"{top_median:.2f}",
+                                                    f'Bottom {percentile_cptb}% Median': f"{bottom_median:.2f}",
+                                                })
+                                    
+                                    if profile_summary_list:
+                                        st.markdown("###### Numeric Attribute Comparison (Mean/Median)")
+                                        st.dataframe(pd.DataFrame(profile_summary_list).set_index('Attribute'))
+
+                    except Exception as e:
+                        st.error(f"An error occurred during Comparative Profile Analysis: {e}")
+
+    with tab2:
         st.header("🤖 AI Powered Insights")
         st.write(f"Use Gemini to generate content and analyze your '{DATASET_FILENAME}' data.")
 
