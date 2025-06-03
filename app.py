@@ -3854,8 +3854,33 @@ try:
                     default=[col for col in ['Amount', 'Qty', 'shipping fee', 'Courier Charges'] if col in numeric_cols_pca][:min(len(numeric_cols_pca), 4)], # Sensible defaults
                     key="pca_features"
                 )
-                n_components_pca = st.slider("Number of Principal Components to compute:", 2, min(len(selected_features_pca), 10) if selected_features_pca else 2, 2, key="pca_n_components",
-                                                help="Must be less than or equal to the number of selected features.")
+                
+                # Determine n_components_pca and conditionally show slider
+                n_components_pca = 2  # Default value
+
+                if selected_features_pca and len(selected_features_pca) >= 2:
+                    min_slider_val = 2
+                    # Max components is limited by number of features or an arbitrary cap like 10
+                    max_slider_val = min(len(selected_features_pca), 10)
+
+                    if max_slider_val < min_slider_val:
+                        # This case implies len(selected_features_pca) < 2, which should be caught by button logic.
+                        # n_components_pca remains 2.
+                        st.warning(f"Not enough features selected ({len(selected_features_pca)}) for PCA component selection. Minimum is {min_slider_val}.")
+                    elif max_slider_val == min_slider_val:
+                        n_components_pca = min_slider_val
+                        st.info(f"Number of principal components is set to {n_components_pca} (minimum required and maximum possible with {len(selected_features_pca)} selected features).")
+                    else: # max_slider_val > min_slider_val, so slider is valid
+                        n_components_pca = st.slider(
+                            "Number of Principal Components to compute:",
+                            min_value=min_slider_val,
+                            max_value=max_slider_val,
+                            value=min_slider_val,  # Default to the minimum possible (e.g., 2)
+                            key="pca_n_components",
+                            help="Must be less than or equal to the number of selected features."
+                        )
+                # If selected_features_pca is empty or has < 2 features, n_components_pca remains 2.
+                # The button click logic will handle warnings for insufficient features.
 
                 if st.button("✨ Run PCA", key="pca_run"):
                     if not selected_features_pca or len(selected_features_pca) < 2:
