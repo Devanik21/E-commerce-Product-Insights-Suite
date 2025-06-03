@@ -1557,10 +1557,20 @@ try:
                 sku_col_cptb = st.selectbox("Select Product ID/SKU column:", all_cols_cptb, index=all_cols_cptb.index('SKU') if 'SKU' in all_cols_cptb else 0, key="cptb_sku")
                 amount_col_cptb = st.selectbox("Select Sales Amount column (for ranking):", numeric_cols_cptb, index=numeric_cols_cptb.index('Amount') if 'Amount' in numeric_cols_cptb else 0, key="cptb_amount")
             with cptb_col2:
+                # Define the list of available options for profiling
+                options_for_profiling = [col for col in categorical_cols_cptb + numeric_cols_cptb if col not in [sku_col_cptb, amount_col_cptb]]
+                
+                # Define a list of candidate default columns. 'Style' is included here because the error message
+                # suggests it was an intended default. Other original defaults are preserved.
+                candidate_default_columns = ['Sales Channel', 'Fulfilment', 'B2B', 'Category', 'Qty', 'Style']
+                
+                # Filter the candidate defaults to ensure they are present in the available options
+                actual_default_columns = [col for col in candidate_default_columns if col in options_for_profiling]
+
                 profiling_attributes_cptb = st.multiselect(
                     "Select attributes for profiling:",
-                    [col for col in categorical_cols_cptb + numeric_cols_cptb if col not in [sku_col_cptb, amount_col_cptb]],
-                    default=[col for col in ['Sales Channel', 'Fulfilment', 'B2B', 'Category', 'Qty'] if col in df.columns and col not in [sku_col_cptb, amount_col_cptb]],
+                    options_for_profiling,
+                    default=actual_default_columns,
                     key="cptb_attributes"
                 )
 
