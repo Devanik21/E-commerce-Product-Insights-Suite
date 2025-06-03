@@ -10,7 +10,7 @@ from sklearn.ensemble import IsolationForest
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import StandardScaler
 import google.generativeai as genai
-from sklearn.model_selection import train_test_split # Already here
+from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, confusion_matrix
 
 # Imports for potential advanced analytics tools (some may be placeholders)
@@ -22,6 +22,7 @@ from statsmodels.tsa.seasonal import seasonal_decompose
 from statsmodels.tsa.arima.model import ARIMA
 from sklearn.ensemble import RandomForestClassifier # Added for new MLS tool
 from sklearn.ensemble import RandomForestRegressor # For new ML regression tool
+from sklearn.metrics import mean_squared_error, r2_score # For new ML regression tool
 from sklearn.decomposition import PCA # For new PCA tool
 # import plotly.express as px # For advanced interactive visualizations
 from lifelines import KaplanMeierFitter
