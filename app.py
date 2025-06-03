@@ -3839,7 +3839,269 @@ try:
                     except Exception as e:
                         st.error(f"An error occurred during model training: {e}")
                         st.error("Ensure your target column is binary (e.g., True/False, 0/1, or two distinct categories like 'Yes'/'No').")
-        # The following analysis blocks (Customer Churn Detection, Sales Forecasting,
+
+            # --- New Advanced Tool 1 (after B2B Prediction): Principal Component Analysis (PCA) ---
+            with st.expander("🔬 Principal Component Analysis (PCA)", expanded=False):
+                st.info("Reduce dimensionality of numeric features and visualize data in lower dimensions. Select multiple numeric columns for PCA.")
+                numeric_cols_pca = get_numeric_columns(df)
+
+                if len(numeric_cols_pca) < 2:
+                    st.warning("PCA requires at least two numeric columns.")
+                else:
+                    selected_features_pca = st.multiselect(
+                        "Select numeric features for PCA:",
+                        numeric_cols_pca,
+                        default=[col for col in ['Amount', 'Qty', 'shipping fee', 'Courier Charges'] if col in numeric_cols_pca][:min(len(numeric_cols_pca), 4)], # Sensible defaults
+                        key="pca_features"
+                    )
+                    n_components_pca = st.slider("Number of Principal Components to compute:", 2, min(len(selected_features_pca), 10) if selected_features_pca else 2, 2, key="pca_n_components",
+                                                 help="Must be less than or equal to the number of selected features.")
+
+                    if st.button("✨ Run PCA", key="pca_run"):
+                        if not selected_features_pca or len(selected_features_pca) < 2:
+                            st.warning("Please select at least two numeric features for PCA.")
+                        elif n_components_pca > len(selected_features_pca):
+                            st.warning("Number of components cannot exceed the number of selected features.")
+                        else:
+                            try:
+                                pca_df_features = df[selected_features_pca].copy().dropna()
+                                if pca_df_features.empty or len(pca_df_features) < n_components_pca:
+                                    st.warning("Not enough data after dropping NaNs for selected features, or fewer data points than components.")
+                                else:
+                                    scaler_pca = StandardScaler()
+                                    scaled_features_pca = scaler_pca.fit_transform(pca_df_features)
+
+                                    pca = PCA(n_components=n_components_pca, random_state=42)
+                                    principal_components = pca.fit_transform(scaled_features_pca)
+                                    
+                                    pc_df = pd.DataFrame(data=principal_components, columns=[f'PC{i+1}' for i in range(n_components_pca)])
+
+                                    st.markdown("##### PCA Results")
+                                    st.write(f"Explained Variance Ratio by each component: {pca.explained_variance_ratio_}")
+                                    st.write(f"Total Explained Variance by {n_components_pca} components: {pca.explained_variance_ratio_.sum():.4f}")
+
+                                    st.markdown("###### Scree Plot (Explained Variance)")
+                                    fig_scree, ax_scree = plt.subplots()
+                                    ax_scree.bar(range(1, n_components_pca + 1), pca.explained_variance_ratio_, alpha=0.7, align='center', label='Individual explained variance')
+                                    ax_scree.step(range(1, n_components_pca + 1), pca.explained_variance_ratio_.cumsum(), where='mid', label='Cumulative explained variance')
+                                    ax_scree.set_ylabel('Explained variance ratio')
+                                    ax_scree.set_xlabel('Principal component index')
+                                    ax_scree.set_xticks(range(1, n_components_pca + 1))
+                                    ax_scree.legend(loc='best')
+                                    plt.tight_layout()
+                                    st.pyplot(fig_scree)
+
+                                    if n_components_pca >= 2:
+                                        st.markdown("###### Scatter Plot of First Two Principal Components")
+                                        fig_pc_scatter, ax_pc_scatter = plt.subplots()
+                                        sns.scatterplot(x=pc_df['PC1'], y=pc_df['PC2'], ax=ax_pc_scatter, alpha=0.5)
+                                        ax_pc_scatter.set_xlabel('Principal Component 1')
+                                        ax_pc_scatter.set_ylabel('Principal Component 2')
+                                        ax_pc_scatter.set_title('First Two Principal Components')
+                                        st.pyplot(fig_pc_scatter)
+                                    
+                                    st.write("Principal Components Data (first 100 rows):")
+                                    st.dataframe(pc_df.head(100))
+
+                            except Exception as e:
+                                st.error(f"Error during PCA: {e}")
+
+            # --- New Advanced Tool 2: Predictive Sales Regression ---
+            with st.expander("📈 Predictive Sales Regression", expanded=False):
+                st.info("Train a regression model (e.g., RandomForestRegressor) to predict a continuous sales metric like 'Amount' or 'Qty'.")
+                
+                all_cols_psr = df.columns.tolist()
+                numeric_cols_psr = get_numeric_columns(df)
+                categorical_features_psr = get_categorical_columns(df, nunique_threshold=50)
+
+                target_col_psr = st.selectbox(
+                    "Select Target Column (Numeric, e.g., 'Amount', 'Qty'):",
+                    numeric_cols_psr,
+                    index=numeric_cols_psr.index('Amount') if 'Amount' in numeric_cols_psr else 0,
+                    key="psr_target"
+                )
+                available_features_psr = [col for col in numeric_cols_psr + categorical_features_psr if col != target_col_psr]
+                default_features_psr = [f for f in ['Qty', 'Category', 'Sales Channel', 'Fulfilment', 'ship-state', 'B2B'] if f in available_features_psr and f != target_col_psr]
+                
+                selected_features_psr = st.multiselect(
+                    "Select Feature Columns:",
+                    available_features_psr,
+                    default=default_features_psr,
+                    key="psr_features"
+                )
+
+                if st.button("🎯 Train Sales Regression Model", key="psr_run"):
+                    if not target_col_psr or not selected_features_psr:
+                        st.warning("Please select a target column and at least one feature column.")
+                    else:
+                        try:
+                            psr_X = df[selected_features_psr].copy()
+                            psr_y = df[target_col_psr].copy()
+
+                            # Align X and y by dropping NaNs from target first, then from features
+                            psr_y = psr_y.dropna()
+                            psr_X = psr_X.loc[psr_y.index]
+
+                            # Preprocessing: Impute NaNs and One-Hot Encode features
+                            for col in psr_X.select_dtypes(include=np.number).columns:
+                                psr_X[col] = psr_X[col].fillna(psr_X[col].median())
+                            for col in psr_X.select_dtypes(include='object').columns:
+                                psr_X[col] = psr_X[col].fillna(psr_X[col].mode()[0] if not psr_X[col].mode().empty else 'Unknown')
+                            
+                            psr_X_processed = pd.get_dummies(psr_X, drop_first=True, dummy_na=False)
+                            
+                            # Final alignment after get_dummies might change index if dummy_na=True was used and created NaNs
+                            # However, with dummy_na=False, index should be preserved.
+                            # Still, good practice to ensure alignment before split.
+                            common_index = psr_X_processed.index.intersection(psr_y.index)
+                            psr_X_processed = psr_X_processed.loc[common_index]
+                            psr_y = psr_y.loc[common_index]
+
+                            if psr_X_processed.empty or psr_y.empty:
+                                st.error("Not enough data after preprocessing for model training.")
+                            else:
+                                X_train, X_test, y_train, y_test = train_test_split(psr_X_processed, psr_y, test_size=0.3, random_state=42)
+                                
+                                model_rfr = RandomForestRegressor(random_state=42, n_estimators=100, n_jobs=-1)
+                                model_rfr.fit(X_train, y_train)
+                                y_pred = model_rfr.predict(X_test)
+
+                                st.markdown("##### Model Performance (Random Forest Regressor)")
+                                mse = mean_squared_error(y_test, y_pred)
+                                r2 = r2_score(y_test, y_pred)
+                                st.metric("Mean Squared Error (MSE)", f"{mse:.2f}")
+                                st.metric("R-squared (R²)", f"{r2:.2f}")
+
+                                st.markdown("###### Feature Importances")
+                                importances_psr = pd.Series(model_rfr.feature_importances_, index=X_train.columns).sort_values(ascending=False)
+                                st.bar_chart(importances_psr.head(15))
+                                st.dataframe(importances_psr.reset_index().rename(columns={'index':'Feature', 0:'Importance'}).head(20))
+
+                                st.markdown("###### Actual vs. Predicted Plot (Sample)")
+                                fig_pred, ax_pred = plt.subplots()
+                                sample_size_plot = min(len(y_test), 200) # Plot a sample for performance
+                                sns.scatterplot(x=y_test[:sample_size_plot], y=y_pred[:sample_size_plot], ax=ax_pred, alpha=0.6)
+                                ax_pred.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 'k--', lw=2) # Diagonal line
+                                ax_pred.set_xlabel("Actual Values")
+                                ax_pred.set_ylabel("Predicted Values")
+                                ax_pred.set_title(f"Actual vs. Predicted {target_col_psr} (Sample)")
+                                st.pyplot(fig_pred)
+
+                        except Exception as e:
+                            st.error(f"An error occurred during regression model training: {e}")
+
+            # --- New Advanced Tool 3: Inventory Turnover/Velocity Analysis ---
+            with st.expander("🔄 Inventory Turnover/Velocity Analysis", expanded=False):
+                st.info("Analyze sales velocity (units sold per period). True inventory turnover requires average inventory data, which is not in this dataset. This tool focuses on sales velocity.")
+                
+                all_cols_itv = df.columns.tolist()
+                numeric_cols_itv = get_numeric_columns(df)
+                date_cols_itv = date_cols
+
+                sku_col_itv = st.selectbox("Select Product ID/SKU column:", all_cols_itv, index=all_cols_itv.index('SKU') if 'SKU' in all_cols_itv else 0, key="itv_sku")
+                qty_col_itv = st.selectbox("Select Quantity Sold column:", numeric_cols_itv, index=numeric_cols_itv.index('Qty') if 'Qty' in numeric_cols_itv else 0, key="itv_qty")
+                date_col_itv = st.selectbox("Select Date column:", date_cols_itv, index=date_cols_itv.index('Date') if 'Date' in date_cols_itv else 0, key="itv_date")
+                time_period_itv = st.selectbox("Aggregation period for velocity:", ["D", "W", "M"], index=1, format_func=lambda x: {"D":"Daily", "W":"Weekly", "M":"Monthly"}[x], key="itv_period")
+                top_n_itv = st.slider("Number of top/bottom products by velocity to show:", 5, 20, 10, key="itv_top_n")
+
+                if st.button("💨 Analyze Sales Velocity", key="itv_run"):
+                    if not all([sku_col_itv, qty_col_itv, date_col_itv]):
+                        st.warning("Please select SKU, Quantity, and Date columns.")
+                    else:
+                        try:
+                            itv_df = df[[sku_col_itv, qty_col_itv, date_col_itv]].copy()
+                            itv_df[date_col_itv] = pd.to_datetime(itv_df[date_col_itv], errors='coerce')
+                            itv_df = itv_df.dropna()
+
+                            if itv_df.empty:
+                                st.warning("No data available for sales velocity analysis.")
+                            else:
+                                product_days = itv_df.groupby(sku_col_itv)[date_col_itv].agg(['min', 'max'])
+                                product_days['duration_days'] = (product_days['max'] - product_days['min']).dt.days + 1
+                                product_total_qty = itv_df.groupby(sku_col_itv)[qty_col_itv].sum()
+                                
+                                velocity_summary_df = pd.concat([product_total_qty, product_days], axis=1).rename(columns={qty_col_itv: 'TotalQtySold'})
+                                
+                                if time_period_itv == "D":
+                                    velocity_summary_df['SalesVelocity'] = velocity_summary_df['TotalQtySold'] / velocity_summary_df['duration_days']
+                                    velocity_unit_itv = "per day"
+                                elif time_period_itv == "W":
+                                    velocity_summary_df['SalesVelocity'] = velocity_summary_df['TotalQtySold'] / (velocity_summary_df['duration_days'] / 7)
+                                    velocity_unit_itv = "per week"
+                                else: # Monthly
+                                    velocity_summary_df['SalesVelocity'] = velocity_summary_df['TotalQtySold'] / (velocity_summary_df['duration_days'] / 30.44)
+                                    velocity_unit_itv = "per month"
+                                
+                                velocity_summary_df = velocity_summary_df.replace([np.inf, -np.inf], 0).fillna(0)
+
+                                st.markdown(f"##### Product Sales Velocity ({velocity_unit_itv})")
+                                st.markdown(f"###### Top {top_n_itv} Fast-Moving Products")
+                                st.dataframe(velocity_summary_df.sort_values(by='SalesVelocity', ascending=False).head(top_n_itv))
+                                st.markdown(f"###### Top {top_n_itv} Slow-Moving Products (Velocity > 0)")
+                                st.dataframe(velocity_summary_df[velocity_summary_df['SalesVelocity'] > 0].sort_values(by='SalesVelocity', ascending=True).head(top_n_itv))
+                        except Exception as e:
+                            st.error(f"Error during Sales Velocity analysis: {e}")
+
+            # --- New Advanced Tool 4: Customer F-M Segmentation (Frequency-Monetary) ---
+            with st.expander("👥 Customer F-M Segmentation (Frequency-Monetary)", expanded=False):
+                st.info("Segment customers/entities based on purchase Frequency (number of orders) and Monetary value (total spend). Uses 'Order ID' as a proxy for customer if no dedicated Customer ID is available.")
+                
+                all_cols_fm = df.columns.tolist()
+                numeric_cols_fm = get_numeric_columns(df)
+                # 'Order ID' is used as the entity identifier here.
+                
+                entity_id_col_fm = st.selectbox("Select Customer/Entity ID column (e.g., 'Order ID'):", all_cols_fm, index=all_cols_fm.index('Order ID') if 'Order ID' in all_cols_fm else 0, key="fm_entity_id")
+                amount_col_fm = st.selectbox("Select Total Amount column:", numeric_cols_fm, index=numeric_cols_fm.index('Amount') if 'Amount' in numeric_cols_fm else 0, key="fm_amount")
+                # For frequency, we count distinct orders. If Order ID is unique per item, we count occurrences of entity_id_col_fm.
+                # If Order ID represents a transaction, we count unique Order IDs per entity_id_col_fm.
+                # Given the dataset, Order ID is unique per row. So, if entity_id_col_fm is also Order ID, frequency will be 1 for all.
+                # This tool is more meaningful if entity_id_col_fm is a true Customer ID that can have multiple Order IDs.
+                # For demonstration, we'll proceed assuming entity_id_col_fm can group transactions.
+
+                n_clusters_fm = st.slider("Number of F-M segments:", 2, 8, 3, key="fm_n_clusters")
+
+                if st.button("🫂 Run F-M Segmentation", key="fm_run"):
+                    if not entity_id_col_fm or not amount_col_fm:
+                        st.warning("Please select Entity ID and Amount columns.")
+                    else:
+                        try:
+                            # Aggregate by the chosen entity ID
+                            # Frequency: count of unique orders (if Order ID is distinct per order) or count of transactions
+                            # Monetary: sum of amount
+                            # For this dataset, Order ID is unique per row. If entity_id_col_fm is 'Order ID', frequency will be 1.
+                            # If a different column is chosen for entity_id_col_fm, then we count Order IDs under it.
+                            
+                            fm_agg_df = df.groupby(entity_id_col_fm).agg(
+                                Frequency=(entity_id_col_fm, 'count'), # Number of transactions/items for this entity
+                                Monetary=(amount_col_fm, 'sum')
+                            ).reset_index()
+
+                            if fm_agg_df.empty or len(fm_agg_df) < n_clusters_fm:
+                                st.warning(f"Not enough unique entities or data points ({len(fm_agg_df)}) for {n_clusters_fm} F-M segments.")
+                            else:
+                                scaler_fm = StandardScaler()
+                                fm_scaled = scaler_fm.fit_transform(fm_agg_df[['Frequency', 'Monetary']])
+                                
+                                kmeans_fm = KMeans(n_clusters=n_clusters_fm, random_state=42, n_init='auto')
+                                fm_agg_df['Segment'] = kmeans_fm.fit_predict(fm_scaled)
+
+                                st.markdown("##### F-M Segmentation Results")
+                                st.write("Segment Profiles (Mean Frequency & Monetary):")
+                                st.dataframe(fm_agg_df.groupby('Segment')[['Frequency', 'Monetary']].mean())
+                                st.write("Segment Sizes:")
+                                st.dataframe(fm_agg_df['Segment'].value_counts().sort_index())
+
+                                fig_fm_scatter, ax_fm_scatter = plt.subplots()
+                                sns.scatterplot(data=fm_agg_df, x='Frequency', y='Monetary', hue='Segment', palette='viridis', ax=ax_fm_scatter, s=30, alpha=0.7)
+                                ax_fm_scatter.set_title('Customer Segments by Frequency and Monetary Value')
+                                ax_fm_scatter.set_xlabel('Frequency (Number of Transactions/Items)')
+                                ax_fm_scatter.set_ylabel('Monetary Value (Total Spend)')
+                                st.pyplot(fig_fm_scatter)
+                                st.caption(f"Note: If '{entity_id_col_fm}' is 'Order ID' (unique per row), 'Frequency' will be 1 for all, and segmentation might not be meaningful.")
+                        except Exception as e:
+                            st.error(f"Error during F-M Segmentation: {e}")
+
+        # The following analysis blocks (Customer Churn Detection, Sales Forecasting, # This was the end of the 4 new tools.
 
 except FileNotFoundError:
     st.error(f"🚨 Error: `{DATASET_FILENAME}` not found. Please make sure the file is in the same directory as `app.py`.")
