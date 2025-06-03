@@ -1563,7 +1563,8 @@ try:
                 
                 # Define a list of candidate default columns. 'Style' is included here because the error message
                 # suggests it was an intended default. Other original defaults are preserved.
-                candidate_default_columns = ['Sales Channel', 'Fulfilment', 'B2B', 'Category', 'Qty', 'Style']
+                # Only include columns that actually exist in the data to avoid errors
+                candidate_default_columns = [col for col in ['Sales Channel', 'Fulfilment', 'B2B', 'Category', 'Qty', 'Style'] if col in options_for_profiling]
 
                 # This is the default for the *first* render or if session state for the key is cleared/invalid
                 initial_default_columns = [col for col in candidate_default_columns if col in options_for_profiling]
