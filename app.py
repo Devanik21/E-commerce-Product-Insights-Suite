@@ -1549,8 +1549,7 @@ try:
 
             all_cols_cptb = df.columns.tolist()
             numeric_cols_cptb = get_numeric_columns(df)
-            # Using a nunique_threshold of 50 as originally intended for this tool.
-            categorical_cols_cptb = get_categorical_columns(df, nunique_threshold=50)
+            categorical_cols_cptb = get_categorical_columns(df, nunique_threshold=50) # Allow slightly higher cardinality for profiling
 
             st.markdown("#### Column Selection")
             cptb_col1, cptb_col2 = st.columns(2)
@@ -1558,37 +1557,11 @@ try:
                 sku_col_cptb = st.selectbox("Select Product ID/SKU column:", all_cols_cptb, index=all_cols_cptb.index('SKU') if 'SKU' in all_cols_cptb else 0, key="cptb_sku")
                 amount_col_cptb = st.selectbox("Select Sales Amount column (for ranking):", numeric_cols_cptb, index=numeric_cols_cptb.index('Amount') if 'Amount' in numeric_cols_cptb else 0, key="cptb_amount")
             with cptb_col2:
-                # Define the list of available options for profiling
-                options_for_profiling = [col for col in categorical_cols_cptb + numeric_cols_cptb if col not in [sku_col_cptb, amount_col_cptb]]
-                
-                # Define a list of candidate default columns. 'Style' is included here because the error message
-                # suggests it was an intended default. Other original defaults are preserved.
-                # Only include columns that actually exist in the data to avoid errors
-                candidate_default_columns = [col for col in ['Sales Channel', 'Fulfilment', 'B2B', 'Category', 'Qty', 'Style'] if col in options_for_profiling]
-
-                # This is the default for the *first* render or if session state for the key is cleared/invalid
-                initial_default_columns = [col for col in candidate_default_columns if col in options_for_profiling]
-
-                widget_key_cptb = "cptb_attributes"
-
-                # Clean session state if necessary before rendering the multiselect
-                if widget_key_cptb in st.session_state:
-                    current_selection_in_state = st.session_state[widget_key_cptb]
-                    # Ensure current_selection_in_state is a list, as multiselect expects
-                    if not isinstance(current_selection_in_state, list):
-                        # If state is not a list (e.g. corrupted or from old version), reset to initial valid defaults
-                        st.session_state[widget_key_cptb] = [s for s in initial_default_columns if s in options_for_profiling]
-                    else:
-                        valid_selection_from_state = [s for s in current_selection_in_state if s in options_for_profiling]
-                        # If the persisted selection contains items no longer valid, update session state
-                        if set(valid_selection_from_state) != set(current_selection_in_state):
-                            st.session_state[widget_key_cptb] = valid_selection_from_state
-
                 profiling_attributes_cptb = st.multiselect(
                     "Select attributes for profiling:",
-                    options_for_profiling,
-                    default=initial_default_columns, # Used if widget_key_cptb not in session_state
-                    key=widget_key_cptb
+                    [col for col in categorical_cols_cptb + numeric_cols_cptb if col not in [sku_col_cptb, amount_col_cptb]],
+                    default=[col for col in ['Sales Channel', 'Fulfilment', 'B2B', 'Category', 'Qty'] if col in df.columns and col not in [sku_col_cptb, amount_col_cptb]],
+                    key="cptb_attributes"
                 )
 
             percentile_cptb = st.slider("Select N% for Top/Bottom (e.g., 20% for top 20% and bottom 20%):", 5, 50, 20, 5, key="cptb_percentile")
@@ -4022,19 +3995,14 @@ try:
                 default_target_mls1_index = all_cols_mls1.index('B2B')
             
             target_col_mls1 = st.selectbox("Select Target Column (Binary - e.g., 'B2B'):", 
-                                           all_cols_mls1,
-                                           index=default_target_mls1_index,
+                                           all_cols_mls1, 
+                                           index=default_target_mls1_index, 
                                            key="mls1_target")
 
             available_features_mls1 = [col for col in numeric_cols_mls1 + categorical_features_mls1 if col != target_col_mls1]
             # Sensible defaults for features, excluding ID-like columns and the target
             default_features_mls1 = [f for f in ['Amount', 'Qty', 'Category', 'Sales Channel', 'Fulfilment', 'ship-state'] if f in available_features_mls1]
-
-            # --- Variable name `default_features_cptb` was defined here in the original context, but it's for a different tool.
-            # --- The problematic multiselect is `profiling_attributes_cptb` in the "Comparative Profile" tool.
-            # --- The fix below targets that specific tool.
-
-
+            
             selected_features_mls1 = st.multiselect("Select Feature Columns:", 
                                                     available_features_mls1, 
                                                     default=default_features_mls1, 
