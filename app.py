@@ -115,13 +115,13 @@ try:
 
     # --- Main content with Tabs ---
     tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
-        "📊 Traditional Analysis",
-        "🤖 AI Powered Insights",
-        "🔬 Advanced Analytics Toolkit",
-        "🔍 Data Deep Dive & QA",
-        "🔧 Feature Engineering & Preprocessing",
-        "🧠 Advanced Modeling Lab",
-        "📈 Interactive Dashboards & Export"
+        "📊 Trad. Analysis",
+        "🤖 AI Insights",
+        "🔬 Adv. Analytics",
+        "🔍 Data QA/EDA",
+        "🔧 Feature Eng.",
+        "🧠 Modeling Lab",
+        "📈 Visuals/Export"
     ])
     with tab1:
         st.header("Traditional Analysis Modules")
