@@ -3995,14 +3995,19 @@ try:
                 default_target_mls1_index = all_cols_mls1.index('B2B')
             
             target_col_mls1 = st.selectbox("Select Target Column (Binary - e.g., 'B2B'):", 
-                                           all_cols_mls1, 
-                                           index=default_target_mls1_index, 
+                                           all_cols_mls1,
+                                           index=default_target_mls1_index,
                                            key="mls1_target")
 
             available_features_mls1 = [col for col in numeric_cols_mls1 + categorical_features_mls1 if col != target_col_mls1]
             # Sensible defaults for features, excluding ID-like columns and the target
             default_features_mls1 = [f for f in ['Amount', 'Qty', 'Category', 'Sales Channel', 'Fulfilment', 'ship-state'] if f in available_features_mls1]
-            
+
+            # --- Variable name `default_features_cptb` was defined here in the original context, but it's for a different tool.
+            # --- The problematic multiselect is `profiling_attributes_cptb` in the "Comparative Profile" tool.
+            # --- The fix below targets that specific tool.
+
+
             selected_features_mls1 = st.multiselect("Select Feature Columns:", 
                                                     available_features_mls1, 
                                                     default=default_features_mls1, 
