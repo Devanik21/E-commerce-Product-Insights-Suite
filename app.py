@@ -3636,9 +3636,8 @@ try:
                         except Exception as e:
                             st.error(f"Error during B2B vs. B2C Sales Dynamics analysis: {e}")
         #st.markdown("---")
-
-            # --- New Advanced Tool 9: Sales Seasonality Index by Category ---
-        with st.expander("📅 Sales Seasonality Index by Category", expanded=False):
+        # --- New Advanced Tool 9: Sales Seasonality Index by Category ---
+        with st.expander("📅 Sales Seasonality Index by Category", expanded=False): # This is still part of tab3
                 st.info("Calculate and visualize a seasonality index for different product categories to understand periodic sales fluctuations.")
                 all_cols_adv9 = df.columns.tolist()
                 numeric_cols_adv9 = get_numeric_columns(df)
@@ -3704,8 +3703,7 @@ try:
                         except Exception as e:
                             st.error(f"Error during Sales Seasonality Index analysis: {e}")
         #st.markdown("---")
-
-            # --- New Advanced Tool 10: Promotion Effectiveness by Product Category --- # Existing content before the target expander
+        # --- New Advanced Tool 10: Promotion Effectiveness by Product Category ---
         with st.expander("🎉 Promotion Effectiveness by Product Category", expanded=False):
                 st.info("Analyze if promotions are more effective for certain product categories by comparing AOV or Quantity lift for promoted vs. non-promoted items within those categories.")
                 all_cols_adv10 = df.columns.tolist()
@@ -3779,8 +3777,7 @@ try:
                         except Exception as e:
                             st.error(f"Error during Promotion Effectiveness by Category analysis: {e}")
         #st.markdown("---")
-        # This was the end of the 10 new tools. Now the MLS expander follows at the correct indentation. # Line before the target
-        with st.expander("🎯 Transaction B2B Status Prediction"):
+        with st.expander("🎯 Transaction B2B Status Prediction"): # This is still part of tab3
             # st.subheader("") # Removed empty subheader as expander title is descriptive
             st.info("Train a model to predict if a transaction is B2B based on its features. Select your features and the target B2B column.")
 
@@ -3871,9 +3868,7 @@ try:
                     except Exception as e:
                         st.error(f"An error occurred during model training: {e}")
                         st.error("Ensure your target column is binary (e.g., True/False, 0/1, or two distinct categories like 'Yes'/'No').")
-
-        # --- New Advanced Tool 1 (after B2B Prediction): Principal Component Analysis (PCA) ---
-        with st.expander("🔬 Principal Component Analysis (PCA)", expanded=False):
+        with st.expander("🔬 Principal Component Analysis (PCA)", expanded=False): # This is still part of tab3
             st.info("Reduce dimensionality of numeric features and visualize data in lower dimensions. Select multiple numeric columns for PCA.")
             numeric_cols_pca = get_numeric_columns(df)
 
@@ -3962,9 +3957,7 @@ try:
 
                         except Exception as e:
                             st.error(f"Error during PCA: {e}")
-
-        # --- New Advanced Tool 2: Predictive Sales Regression ---
-        with st.expander("📈 Predictive Sales Regression", expanded=False):
+        with st.expander("📈 Predictive Sales Regression", expanded=False): # This is still part of tab3
             st.info("Train a regression model (e.g., RandomForestRegressor) to predict a continuous sales metric like 'Amount' or 'Qty'.")
             
             all_cols_psr = df.columns.tolist()
@@ -4046,9 +4039,7 @@ try:
 
                     except Exception as e:
                         st.error(f"An error occurred during regression model training: {e}")
-
-        # --- New Advanced Tool 3: Inventory Turnover/Velocity Analysis ---
-        with st.expander("🔄 Inventory Turnover/Velocity Analysis", expanded=False):
+        with st.expander("🔄 Inventory Turnover/Velocity Analysis", expanded=False): # This is still part of tab3
             st.info("Analyze sales velocity (units sold per period). True inventory turnover requires average inventory data, which is not in this dataset. This tool focuses on sales velocity.")
             
             all_cols_itv = df.columns.tolist()
@@ -4098,9 +4089,7 @@ try:
                             st.dataframe(velocity_summary_df[velocity_summary_df['SalesVelocity'] > 0].sort_values(by='SalesVelocity', ascending=True).head(top_n_itv))
                     except Exception as e:
                         st.error(f"Error during Sales Velocity analysis: {e}")
-
-        # --- New Advanced Tool 4: Customer F-M Segmentation (Frequency-Monetary) ---
-        with st.expander("👥 Customer F-M Segmentation (Frequency-Monetary)", expanded=False):
+        with st.expander("👥 Customer F-M Segmentation (Frequency-Monetary)", expanded=False): # This is the last expander in tab3
             st.info("Segment customers/entities based on purchase Frequency (number of orders) and Monetary value (total spend). Uses 'Order ID' as a proxy for customer if no dedicated Customer ID is available.")
             
             all_cols_fm = df.columns.tolist()
@@ -4157,9 +4146,48 @@ try:
                             st.caption(f"Note: If '{entity_id_col_fm}' is 'Order ID' (unique per row), 'Frequency' will be 1 for all, and segmentation might not be meaningful.")
                     except Exception as e:
                         st.error(f"Error during F-M Segmentation: {e}")
+    # End of with tab3. New tabs start here at the same indentation level.
 
-        # The following analysis blocks (Customer Churn Detection, Sales Forecasting, # This was the end of the 4 new tools.
+    with tab4:
+        st.header("🔍 Data Deep Dive & Quality Assurance")
+        st.write(f"Perform in-depth exploratory data analysis (EDA), assess data quality, and profile your '{DATASET_FILENAME}' dataset.")
+        st.info("This section is under development. Future tools could include: \n"
+                "- Detailed column statistics (missing values, unique counts, distributions)\n"
+                "- Data type validation and correction suggestions\n"
+                "- Outlier detection summaries beyond Isolation Forest\n"
+                "- Correlation matrix heatmaps with advanced options\n"
+                "- Data profiling reports (e.g., using pandas-profiling if integrated)")
 
+    with tab5:
+        st.header("🔧 Feature Engineering & Preprocessing")
+        st.write("Create new features, transform existing ones, and prepare your data for machine learning models.")
+        st.info("This section is under development. Future tools could include: \n"
+                "- Date feature extraction (e.g., day of week, month, quarter, cyclical features)\n"
+                "- Text feature extraction (e.g., TF-IDF, word counts from product descriptions if available)\n"
+                "- Binning/Discretization of numerical features\n"
+                "- Interaction feature creation (e.g., price * quantity)\n"
+                "- Advanced scaling and normalization techniques\n"
+                "- Feature selection methods (e.g., based on variance, correlation, model-based selection)")
+
+    with tab6:
+        st.header("🧠 Advanced Modeling Lab")
+        st.write("Experiment with more sophisticated machine learning models and techniques.")
+        st.info("This section is under development. Future tools could include: \n"
+                "- Advanced Regression Models (e.g., XGBoost, LightGBM, Neural Networks for regression)\n"
+                "- Advanced Classification Models (e.g., SVM, Gradient Boosting, Naive Bayes)\n"
+                "- Clustering Algorithms beyond K-Means (e.g., DBSCAN, Hierarchical Clustering)\n"
+                "- Time Series Forecasting Models (e.g., Prophet, SARIMA with auto-tuning)\n"
+                "- Model comparison and hyperparameter tuning frameworks")
+
+    with tab7:
+        st.header("📈 Interactive Dashboards & Export")
+        st.write("Create dynamic visualizations and export data, results, or reports.")
+        st.info("This section is under development. Future tools could include: \n"
+                "- Customizable Plotly Express charts for deeper visual exploration\n"
+                "- Interactive pivot tables and cross-tabulations\n"
+                "- Options to export filtered/processed data to CSV/Excel\n"
+                "- Functionality to save generated charts or tables as images/PDFs\n"
+                "- Basic report generation based on selected analyses")
 except FileNotFoundError:
     st.error(f"🚨 Error: `{DATASET_FILENAME}` not found. Please make sure the file is in the same directory as `app.py`.")
     st.stop()
