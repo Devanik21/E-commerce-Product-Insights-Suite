@@ -86,10 +86,14 @@ try:
 
 
     # --- Main content with Tabs ---
-    tab1, tab2, tab3 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
         "📊 Traditional Analysis",
         "🤖 AI Powered Insights",
-        "🔬 Advanced Analytics Toolkit"
+        "🔬 Advanced Analytics Toolkit",
+        "🔍 Data Deep Dive & QA",
+        "🔧 Feature Engineering & Preprocessing",
+        "🧠 Advanced Modeling Lab",
+        "📈 Interactive Dashboards & Export"
     ])
     with tab1:
         st.header("Traditional Analysis Modules")
