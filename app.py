@@ -40,6 +40,34 @@ st.set_page_config(page_title="🛒 E-commerce Sales Insights Suite", layout="wi
 st.title("🛒 E-commerce Sales Insights Suite")
 st.write("Exploring insights from the preloaded Amazon Sales Report. Analyze segments, sales trends, and more!")
 
+# --- Custom CSS for Scrollable Tabs ---
+st.markdown("""
+<style>
+    /* Target the container for the tab buttons */
+    div[data-baseweb="tabs"] > div:first-child > div:first-child {
+        overflow-x: auto !important; /* Enable horizontal scroll */
+        white-space: nowrap !important; /* Prevent tabs from wrapping to the next line */
+        scrollbar-width: thin; /* Optional: For a thinner scrollbar in Firefox */
+        scrollbar-color: #888 #f0f0f0; /* Optional: Scrollbar colors for Firefox */
+    }
+    /* For Webkit browsers like Chrome, Safari */
+    div[data-baseweb="tabs"] > div:first-child > div:first-child::-webkit-scrollbar {
+        height: 8px; /* Height of the scrollbar */
+    }
+    div[data-baseweb="tabs"] > div:first-child > div:first-child::-webkit-scrollbar-thumb {
+        background-color: #888; /* Color of the scrollbar thumb */
+        border-radius: 4px; /* Rounded corners for the thumb */
+    }
+    div[data-baseweb="tabs"] > div:first-child > div:first-child::-webkit-scrollbar-track {
+        background-color: #f0f0f0; /* Color of the scrollbar track */
+    }
+    /* Ensure individual tab buttons don't shrink excessively, allowing them to overflow */
+    div[data-baseweb="tabs"] > div:first-child > div:first-child > button {
+        flex-shrink: 0;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # Load preloaded data
 # Ensure 'Amazon_Sale_Report_Sampled.csv' is in the same directory as app.py or provide a full path.
 DATASET_FILENAME = "Amazon_Sale_Report_Sampled.csv"
