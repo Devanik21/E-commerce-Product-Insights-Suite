@@ -1549,7 +1549,7 @@ try:
 
             all_cols_cptb = df.columns.tolist()
             numeric_cols_cptb = get_numeric_columns(df)
-            categorical_cols_cptb = get_categorical_columns(df, nunique_threshold=50) # Allow slightly higher cardinality for profiling
+            categorical_cols_cptb = get_categorical_columns(df, nunique_threshold=100) # Allow slightly higher cardinality for profiling
 
             st.markdown("#### Column Selection")
             cptb_col1, cptb_col2 = st.columns(2)
