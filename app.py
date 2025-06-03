@@ -1549,7 +1549,8 @@ try:
 
             all_cols_cptb = df.columns.tolist()
             numeric_cols_cptb = get_numeric_columns(df)
-            categorical_cols_cptb = get_categorical_columns(df, nunique_threshold=100) # Allow slightly higher cardinality for profiling
+            # Using a nunique_threshold of 50 as originally intended for this tool.
+            categorical_cols_cptb = get_categorical_columns(df, nunique_threshold=50)
 
             st.markdown("#### Column Selection")
             cptb_col1, cptb_col2 = st.columns(2)
@@ -1563,15 +1564,30 @@ try:
                 # Define a list of candidate default columns. 'Style' is included here because the error message
                 # suggests it was an intended default. Other original defaults are preserved.
                 candidate_default_columns = ['Sales Channel', 'Fulfilment', 'B2B', 'Category', 'Qty', 'Style']
-                
-                # Filter the candidate defaults to ensure they are present in the available options
-                actual_default_columns = [col for col in candidate_default_columns if col in options_for_profiling]
+
+                # This is the default for the *first* render or if session state for the key is cleared/invalid
+                initial_default_columns = [col for col in candidate_default_columns if col in options_for_profiling]
+
+                widget_key_cptb = "cptb_attributes"
+
+                # Clean session state if necessary before rendering the multiselect
+                if widget_key_cptb in st.session_state:
+                    current_selection_in_state = st.session_state[widget_key_cptb]
+                    # Ensure current_selection_in_state is a list, as multiselect expects
+                    if not isinstance(current_selection_in_state, list):
+                        # If state is not a list (e.g. corrupted or from old version), reset to initial valid defaults
+                        st.session_state[widget_key_cptb] = [s for s in initial_default_columns if s in options_for_profiling]
+                    else:
+                        valid_selection_from_state = [s for s in current_selection_in_state if s in options_for_profiling]
+                        # If the persisted selection contains items no longer valid, update session state
+                        if set(valid_selection_from_state) != set(current_selection_in_state):
+                            st.session_state[widget_key_cptb] = valid_selection_from_state
 
                 profiling_attributes_cptb = st.multiselect(
                     "Select attributes for profiling:",
                     options_for_profiling,
-                    default=actual_default_columns,
-                    key="cptb_attributes"
+                    default=initial_default_columns, # Used if widget_key_cptb not in session_state
+                    key=widget_key_cptb
                 )
 
             percentile_cptb = st.slider("Select N% for Top/Bottom (e.g., 20% for top 20% and bottom 20%):", 5, 50, 20, 5, key="cptb_percentile")
